@@ -197,7 +197,8 @@ export async function createTeamInvite(formData: FormData) {
       inviteUrl,
       role: normalizedInvite.role
     });
-  } catch {
+  } catch (sendError) {
+    console.error("Invite email send failed", sendError);
     revalidatePath("/settings/team");
     encodedRedirect(
       "/settings/team",
