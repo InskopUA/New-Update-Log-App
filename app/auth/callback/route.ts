@@ -2,6 +2,26 @@ import { NextResponse } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
+function getPublicCallbackError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("rate limit")) {
+    return "Too many email requests. Wait a few minutes, then try again.";
+  }
+
+  if (normalized.includes("expired") || normalized.includes("invalid")) {
+    return "This confirmation link is invalid or expired. Request a new email and try again.";
+  }
+
+  return "We could not confirm this account. Request a new email and try again.";
+}
+
+function redirectToLoginWithError(origin: string, message: string) {
+  const loginUrl = new URL("/login", origin);
+  loginUrl.searchParams.set("error", getPublicCallbackError(message));
+  return NextResponse.redirect(loginUrl);
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -12,18 +32,14 @@ export async function GET(request: Request) {
   const supabase = await createClient();
 
   if (error) {
-    const loginUrl = new URL("/login", requestUrl.origin);
-    loginUrl.searchParams.set("error", error);
-    return NextResponse.redirect(loginUrl);
+    return redirectToLoginWithError(requestUrl.origin, error);
   }
 
   if (code) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (exchangeError) {
-      const loginUrl = new URL("/login", requestUrl.origin);
-      loginUrl.searchParams.set("error", exchangeError.message);
-      return NextResponse.redirect(loginUrl);
+      return redirectToLoginWithError(requestUrl.origin, exchangeError.message);
     }
 
     return NextResponse.redirect(new URL(next, requestUrl.origin));
@@ -36,15 +52,11 @@ export async function GET(request: Request) {
     });
 
     if (verifyError) {
-      const loginUrl = new URL("/login", requestUrl.origin);
-      loginUrl.searchParams.set("error", verifyError.message);
-      return NextResponse.redirect(loginUrl);
+      return redirectToLoginWithError(requestUrl.origin, verifyError.message);
     }
 
     return NextResponse.redirect(new URL(next, requestUrl.origin));
   }
 
-  const loginUrl = new URL("/login", requestUrl.origin);
-  loginUrl.searchParams.set("error", "Confirmation link is invalid or expired.");
-  return NextResponse.redirect(loginUrl);
+  return redirectToLoginWithError(requestUrl.origin, "Confirmation link is invalid or expired.");
 }

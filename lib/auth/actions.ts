@@ -13,6 +13,32 @@ function encodedRedirect(path: string, key: "error" | "message", value: string):
   redirect(`${path}?${key}=${encodeURIComponent(value)}`);
 }
 
+function getPublicAuthError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("rate limit")) {
+    return "Too many email requests. Wait a few minutes, then try again. If your account already exists, sign in instead.";
+  }
+
+  if (
+    normalized.includes("invalid login") ||
+    normalized.includes("invalid credentials") ||
+    normalized.includes("email not confirmed")
+  ) {
+    return "Email or password is incorrect, or the account has not been confirmed yet.";
+  }
+
+  if (normalized.includes("already registered") || normalized.includes("already exists")) {
+    return "An account with this email already exists. Sign in instead.";
+  }
+
+  if (normalized.includes("expired") || normalized.includes("invalid")) {
+    return "This confirmation link is invalid or expired. Request a new email and try again.";
+  }
+
+  return "We could not complete this request. Check the details and try again.";
+}
+
 export async function signIn(formData: FormData) {
   const supabase = await createClient();
   const email = getString(formData, "email");
@@ -25,7 +51,7 @@ export async function signIn(formData: FormData) {
   });
 
   if (error) {
-    encodedRedirect("/login", "error", error.message);
+    encodedRedirect("/login", "error", getPublicAuthError(error.message));
   }
 
   revalidatePath("/", "layout");
@@ -51,7 +77,7 @@ export async function signUp(formData: FormData) {
   });
 
   if (error) {
-    encodedRedirect("/signup", "error", error.message);
+    encodedRedirect("/signup", "error", getPublicAuthError(error.message));
   }
 
   revalidatePath("/", "layout");
