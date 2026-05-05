@@ -1,0 +1,280 @@
+-- SaaS Foundation v1
+-- Run this file in Supabase SQL Editor before using the app.
+
+create extension if not exists pgcrypto;
+
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'app_role') then
+    create type public.app_role as enum ('owner', 'admin', 'dispatcher', 'viewer');
+  end if;
+end $$;
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  full_name text,
+  avatar_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.companies (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.company_members (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role public.app_role not null default 'dispatcher',
+  status text not null default 'active' check (status in ('active', 'inactive')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (company_id, user_id)
+);
+
+create table if not exists public.company_invites (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  email text not null,
+  role public.app_role not null default 'dispatcher',
+  token text not null unique default encode(gen_random_bytes(24), 'hex'),
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked', 'expired')),
+  invited_by uuid references auth.users(id) on delete set null,
+  accepted_by uuid references auth.users(id) on delete set null,
+  expires_at timestamptz not null default now() + interval '7 days',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists company_members_user_id_idx on public.company_members(user_id);
+create index if not exists company_members_company_id_idx on public.company_members(company_id);
+create index if not exists company_invites_company_id_idx on public.company_invites(company_id);
+create unique index if not exists company_invites_pending_email_idx
+  on public.company_invites(company_id, lower(email))
+  where status = 'pending';
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists set_profiles_updated_at on public.profiles;
+create trigger set_profiles_updated_at
+before update on public.profiles
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_companies_updated_at on public.companies;
+create trigger set_companies_updated_at
+before update on public.companies
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_company_members_updated_at on public.company_members;
+create trigger set_company_members_updated_at
+before update on public.company_members
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_company_invites_updated_at on public.company_invites;
+create trigger set_company_invites_updated_at
+before update on public.company_invites
+for each row execute function public.set_updated_at();
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, full_name)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data ->> 'full_name', '')
+  )
+  on conflict (id) do update
+    set email = excluded.email,
+        full_name = coalesce(nullif(excluded.full_name, ''), public.profiles.full_name);
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_user();
+
+create or replace function public.is_company_member(target_company_id uuid, target_user_id uuid default auth.uid())
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.company_members cm
+    where cm.company_id = target_company_id
+      and cm.user_id = target_user_id
+      and cm.status = 'active'
+  );
+$$;
+
+create or replace function public.has_company_role(target_company_id uuid, allowed_roles public.app_role[])
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.company_members cm
+    where cm.company_id = target_company_id
+      and cm.user_id = auth.uid()
+      and cm.role = any(allowed_roles)
+      and cm.status = 'active'
+  );
+$$;
+
+create or replace function public.shares_company_with(target_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.company_members mine
+    join public.company_members theirs on theirs.company_id = mine.company_id
+    where mine.user_id = auth.uid()
+      and mine.status = 'active'
+      and theirs.user_id = target_user_id
+      and theirs.status = 'active'
+  );
+$$;
+
+create or replace function public.create_company(company_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_company_id uuid;
+  normalized_name text;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  normalized_name := nullif(trim(company_name), '');
+
+  if normalized_name is null then
+    raise exception 'Company name is required';
+  end if;
+
+  insert into public.companies (name, slug, created_by)
+  values (
+    normalized_name,
+    lower(regexp_replace(normalized_name, '[^a-zA-Z0-9]+', '-', 'g')),
+    auth.uid()
+  )
+  returning id into new_company_id;
+
+  insert into public.company_members (company_id, user_id, role, status)
+  values (new_company_id, auth.uid(), 'owner', 'active');
+
+  return new_company_id;
+end;
+$$;
+
+alter table public.profiles enable row level security;
+alter table public.companies enable row level security;
+alter table public.company_members enable row level security;
+alter table public.company_invites enable row level security;
+
+drop policy if exists "Profiles are visible to self and company members" on public.profiles;
+create policy "Profiles are visible to self and company members"
+on public.profiles
+for select
+to authenticated
+using (id = auth.uid() or public.shares_company_with(id));
+
+drop policy if exists "Users can update their own profile" on public.profiles;
+create policy "Users can update their own profile"
+on public.profiles
+for update
+to authenticated
+using (id = auth.uid())
+with check (id = auth.uid());
+
+drop policy if exists "Members can view their companies" on public.companies;
+create policy "Members can view their companies"
+on public.companies
+for select
+to authenticated
+using (public.is_company_member(id));
+
+drop policy if exists "Owners and admins can update companies" on public.companies;
+create policy "Owners and admins can update companies"
+on public.companies
+for update
+to authenticated
+using (public.has_company_role(id, array['owner', 'admin']::public.app_role[]))
+with check (public.has_company_role(id, array['owner', 'admin']::public.app_role[]));
+
+drop policy if exists "Members can view company memberships" on public.company_members;
+create policy "Members can view company memberships"
+on public.company_members
+for select
+to authenticated
+using (public.is_company_member(company_id));
+
+drop policy if exists "Owners and admins can manage memberships" on public.company_members;
+create policy "Owners and admins can manage memberships"
+on public.company_members
+for all
+to authenticated
+using (public.has_company_role(company_id, array['owner', 'admin']::public.app_role[]))
+with check (public.has_company_role(company_id, array['owner', 'admin']::public.app_role[]));
+
+drop policy if exists "Owners and admins can view invites" on public.company_invites;
+create policy "Owners and admins can view invites"
+on public.company_invites
+for select
+to authenticated
+using (public.has_company_role(company_id, array['owner', 'admin']::public.app_role[]));
+
+drop policy if exists "Owners and admins can create invites" on public.company_invites;
+create policy "Owners and admins can create invites"
+on public.company_invites
+for insert
+to authenticated
+with check (public.has_company_role(company_id, array['owner', 'admin']::public.app_role[]));
+
+drop policy if exists "Owners and admins can update invites" on public.company_invites;
+create policy "Owners and admins can update invites"
+on public.company_invites
+for update
+to authenticated
+using (public.has_company_role(company_id, array['owner', 'admin']::public.app_role[]))
+with check (public.has_company_role(company_id, array['owner', 'admin']::public.app_role[]));
+
+grant execute on function public.create_company(text) to authenticated;
+grant execute on function public.is_company_member(uuid, uuid) to authenticated;
+grant execute on function public.has_company_role(uuid, public.app_role[]) to authenticated;
+grant execute on function public.shares_company_with(uuid) to authenticated;

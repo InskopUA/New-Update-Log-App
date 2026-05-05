@@ -1,0 +1,78 @@
+import { BarChart3, Settings, UsersRound } from "lucide-react";
+import Link from "next/link";
+import { signOut } from "@/lib/auth/actions";
+import { roleLabel } from "@/lib/permissions";
+import type { Membership } from "@/lib/auth/session";
+import { Button } from "@/components/ui/button";
+
+type AppShellProps = {
+  children: React.ReactNode;
+  email: string;
+  activeMembership: Membership;
+};
+
+const navItems = [
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: BarChart3
+  },
+  {
+    href: "/settings/team",
+    label: "Team",
+    icon: UsersRound
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: Settings
+  }
+];
+
+export function AppShell({ children, email, activeMembership }: AppShellProps) {
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <Link className="brand" href="/dashboard">
+          <span className="brand-mark">UL</span>
+          <span className="brand-text">
+            <span className="brand-name">Update Log</span>
+            <span className="brand-subtitle">{activeMembership.company.name}</span>
+          </span>
+        </Link>
+
+        <nav className="nav" aria-label="Main navigation">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link className="nav-link" href={item.href} key={item.href}>
+                <Icon size={17} strokeWidth={2} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="user-meta">
+            <span className="user-email">{email}</span>
+            <span className="user-role">{roleLabel(activeMembership.role)}</span>
+          </div>
+          <form action={signOut}>
+            <Button fullWidth type="submit" variant="secondary">
+              Sign out
+            </Button>
+          </form>
+        </div>
+      </aside>
+      <main className="main">
+        <div className="topbar">
+          <div>
+            <div className="topbar-title">{activeMembership.company.name}</div>
+          </div>
+        </div>
+        <div className="content">{children}</div>
+      </main>
+    </div>
+  );
+}
