@@ -39,7 +39,7 @@ export async function signUp(formData: FormData) {
   const fullName = getString(formData, "full_name");
   const origin = getString(formData, "origin");
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -55,6 +55,15 @@ export async function signUp(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
+
+  if (!data.session) {
+    encodedRedirect(
+      "/login",
+      "message",
+      "Account created. Check your email to confirm the account, then sign in."
+    );
+  }
+
   redirect("/onboarding");
 }
 
