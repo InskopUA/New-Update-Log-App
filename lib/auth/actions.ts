@@ -234,3 +234,29 @@ export async function acceptInvite(formData: FormData) {
   revalidatePath("/", "layout");
   redirect("/dashboard");
 }
+
+export async function revokeTeamInvite(formData: FormData) {
+  const supabase = await createClient();
+  const inviteId = getString(formData, "invite_id");
+  const companyId = getString(formData, "company_id");
+
+  if (!inviteId || !companyId) {
+    encodedRedirect("/settings/team", "error", "Invite could not be found.");
+  }
+
+  const { error } = await supabase
+    .from("company_invites")
+    .update({
+      status: "revoked"
+    })
+    .eq("id", inviteId)
+    .eq("company_id", companyId)
+    .eq("status", "pending");
+
+  if (error) {
+    encodedRedirect("/settings/team", "error", "Invite could not be cancelled.");
+  }
+
+  revalidatePath("/settings/team");
+  encodedRedirect("/settings/team", "message", "Invite cancelled.");
+}

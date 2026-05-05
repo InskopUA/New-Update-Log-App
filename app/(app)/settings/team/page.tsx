@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { createTeamInvite } from "@/lib/auth/actions";
+import { createTeamInvite, revokeTeamInvite } from "@/lib/auth/actions";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canManageTeam, roleLabel } from "@/lib/permissions";
@@ -126,7 +126,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <Panel title="Pending invites">
+        <Panel title="Invites">
           {(invites as TeamInvite[] | null)?.length ? (
             <table className="table">
               <thead>
@@ -135,6 +135,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                   <th>Role</th>
                   <th>Status</th>
                   <th>Invite link</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,6 +153,19 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                         </a>
                       ) : (
                         <span className="stat-note">Unavailable</span>
+                      )}
+                    </td>
+                    <td>
+                      {invite.status === "pending" && canInvite ? (
+                        <form action={revokeTeamInvite}>
+                          <input name="invite_id" type="hidden" value={invite.id} />
+                          <input name="company_id" type="hidden" value={companyId} />
+                          <Button type="submit" variant="secondary">
+                            Cancel
+                          </Button>
+                        </form>
+                      ) : (
+                        <span className="stat-note">None</span>
                       )}
                     </td>
                   </tr>
