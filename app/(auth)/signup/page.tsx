@@ -8,6 +8,7 @@ type SignupPageProps = {
   searchParams: Promise<{
     error?: string;
     message?: string;
+    next?: string;
   }>;
 };
 
@@ -16,7 +17,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const headerStore = await headers();
   const host = headerStore.get("host");
   const protocol = host?.startsWith("localhost") ? "http" : "https";
-  const origin = `${protocol}://${host}`;
+  const origin = host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_APP_URL ?? "";
 
   return (
     <main className="auth-page">
@@ -32,6 +33,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
 
         <form action={signUp} className="form">
           <input name="origin" type="hidden" value={origin} />
+          <input name="next" type="hidden" value={params.next ?? "/onboarding"} />
           <label className="field">
             <span className="label">Full name</span>
             <input className="input" name="full_name" required type="text" />

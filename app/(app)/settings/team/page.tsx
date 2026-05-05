@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { createTeamInvite } from "@/lib/auth/actions";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -29,15 +30,20 @@ type TeamInvite = {
   email: string;
   role: string;
   status: string;
+  token: string;
   created_at: string;
 };
 
 export default async function TeamPage({ searchParams }: TeamPageProps) {
   const params = await searchParams;
+  const headerStore = await headers();
   const context = await getAppContext();
   const supabase = await createClient();
   const companyId = context.activeMembership?.company.id;
   const canInvite = canManageTeam(context.activeMembership?.role);
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
+  const origin = host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_APP_URL ?? "";
 
   const [{ data: members }, { data: invites }] = await Promise.all([
     supabase
@@ -47,7 +53,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
       .order("created_at", { ascending: true }),
     supabase
       .from("company_invites")
-      .select("id, email, role, status, created_at")
+      .select("id, email, role, status, token, created_at")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
   ]);
@@ -128,6 +134,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                   <th>Email</th>
                   <th>Role</th>
                   <th>Status</th>
+                  <th>Invite link</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,6 +144,15 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                     <td>{roleLabel(invite.role)}</td>
                     <td>
                       <span className="badge">{invite.status}</span>
+                    </td>
+                    <td>
+                      {invite.status === "pending" ? (
+                        <a className="muted-link" href={`${origin}/invite/${invite.token}`}>
+                          Open link
+                        </a>
+                      ) : (
+                        <span className="stat-note">Unavailable</span>
+                      )}
                     </td>
                   </tr>
                 ))}

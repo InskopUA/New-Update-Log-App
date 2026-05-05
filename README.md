@@ -17,6 +17,9 @@ SaaS foundation for a trucking operations platform.
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_APP_URL=
+RESEND_API_KEY=
+INVITE_EMAIL_FROM=
 ```
 
 3. Run `supabase/schema.sql` in Supabase SQL Editor.
@@ -39,4 +42,15 @@ npm run dev
 - Company onboarding
 - Owner/admin/dispatcher/viewer role model
 - Team invite table and UI
+- Resend-powered team invite emails
+
+## Supabase SQL Updates
+
+For a fresh database, run `supabase/schema.sql`.
+
+For an existing database that already has the foundation tables, run:
+
+```text
+supabase/invite-flow.sql
+```
 - Light, minimal SaaS dashboard layout
