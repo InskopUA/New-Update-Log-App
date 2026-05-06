@@ -1,4 +1,4 @@
-import { BarChart3, Settings, UsersRound } from "lucide-react";
+import { BarChart3, Settings, Truck, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/lib/auth/actions";
 import { roleLabel } from "@/lib/permissions";
@@ -34,9 +34,11 @@ export function AppShell({ children, email, activeMembership }: AppShellProps) {
     <div className="app-shell">
       <aside className="sidebar">
         <Link className="brand" href="/dashboard">
-          <span className="brand-mark">UL</span>
+          <span className="brand-mark">
+            <Truck size={17} strokeWidth={2.4} />
+          </span>
           <span className="brand-text">
-            <span className="brand-name">Update Log</span>
+            <span className="brand-name">DeepTruck</span>
             <span className="brand-subtitle">{activeMembership.company.name}</span>
           </span>
         </Link>

@@ -1,4 +1,4 @@
--- SaaS Foundation v1
+-- DeepTruck SaaS Foundation v1
 -- Run this file in Supabase SQL Editor before using the app.
 
 create extension if not exists pgcrypto;

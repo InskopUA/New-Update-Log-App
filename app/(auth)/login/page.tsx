@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="auth-page">
       <section className="auth-panel">
-        <p className="eyebrow">SaaS Foundation</p>
+        <p className="eyebrow">DeepTruck</p>
         <h1 className="page-title">Sign in</h1>
         <p className="page-description">
           Use your email and password to access your company workspace.

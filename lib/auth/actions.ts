@@ -193,7 +193,7 @@ export async function createTeamInvite(formData: FormData) {
 
   try {
     await sendInviteEmail({
-      companyName: normalizedInvite.company?.name ?? "Update Log",
+      companyName: normalizedInvite.company?.name ?? "DeepTruck",
       email: normalizedInvite.email,
       inviteUrl,
       role: normalizedInvite.role

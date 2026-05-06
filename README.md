@@ -1,4 +1,4 @@
-# New Update Log App
+# DeepTruck
 
 SaaS foundation for a trucking operations platform.
 

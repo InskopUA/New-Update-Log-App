@@ -39,9 +39,9 @@ export async function sendInviteEmail({
     body: JSON.stringify({
       from,
       to: email,
-      subject: `${companyName} invited you to Update Log`,
+      subject: `${companyName} invited you to DeepTruck`,
       text: [
-        `${companyName} invited you to join Update Log as ${role}.`,
+        `${companyName} invited you to join DeepTruck as ${role}.`,
         "",
         "Open this link to create your account and accept the invite:",
         inviteUrl
@@ -50,7 +50,7 @@ export async function sendInviteEmail({
         <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
           <h1 style="font-size: 20px; margin: 0 0 12px;">Join ${safeCompanyName}</h1>
           <p style="margin: 0 0 20px;">
-            You have been invited to Update Log as <strong>${safeRole}</strong>.
+            You have been invited to DeepTruck as <strong>${safeRole}</strong>.
           </p>
           <a href="${safeInviteUrl}" style="background: #111827; color: #ffffff; display: inline-block; padding: 10px 14px; border-radius: 7px; text-decoration: none; font-weight: 700;">
             Accept invite
