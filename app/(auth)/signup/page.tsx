@@ -6,6 +6,7 @@ import { Notice } from "@/components/ui/notice";
 
 type SignupPageProps = {
   searchParams: Promise<{
+    email?: string;
     error?: string;
     message?: string;
     next?: string;
@@ -18,14 +19,18 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const host = headerStore.get("host");
   const protocol = host?.startsWith("localhost") ? "http" : "https";
   const origin = host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const lockedEmail = params.email?.trim() ?? "";
+  const isInviteSignup = Boolean(lockedEmail);
 
   return (
     <main className="auth-page">
       <section className="auth-panel">
-        <p className="eyebrow">Owner account</p>
-        <h1 className="page-title">Create account</h1>
+        <p className="eyebrow">{isInviteSignup ? "Team invite" : "Owner account"}</p>
+        <h1 className="page-title">{isInviteSignup ? "Activate account" : "Create account"}</h1>
         <p className="page-description">
-          Start with one owner workspace. Dispatchers can be invited from settings.
+          {isInviteSignup
+            ? "Complete your account setup to accept this company invite."
+            : "Start with one owner workspace. Dispatchers can be invited from settings."}
         </p>
 
         <Notice message={params.error} type="error" />
@@ -40,20 +45,29 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
           </label>
           <label className="field">
             <span className="label">Email</span>
-            <input className="input" name="email" required type="email" />
+            <input
+              className="input"
+              name="email"
+              readOnly={isInviteSignup}
+              required
+              type="email"
+              value={lockedEmail || undefined}
+            />
           </label>
           <label className="field">
             <span className="label">Password</span>
             <input className="input" minLength={6} name="password" required type="password" />
           </label>
           <Button fullWidth type="submit">
-            Create account
+            {isInviteSignup ? "Activate account" : "Create account"}
           </Button>
         </form>
 
-        <Link className="muted-link" href="/login">
-          Already have an account
-        </Link>
+        {!isInviteSignup ? (
+          <Link className="muted-link" href="/login">
+            Already have an account
+          </Link>
+        ) : null}
       </section>
     </main>
   );

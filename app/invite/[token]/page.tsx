@@ -29,16 +29,17 @@ function getInvitePath(token: string) {
   return `/invite/${encodeURIComponent(token)}`;
 }
 
-function AuthLinks({ token }: { token: string }) {
+function AuthLinks({ email, token }: { email: string; token: string }) {
   const next = getInvitePath(token);
+  const signupParams = new URLSearchParams({
+    email,
+    next
+  });
 
   return (
     <div className="form">
-      <Link className="button button-primary button-full" href={`/signup?next=${encodeURIComponent(next)}`}>
-        Create account
-      </Link>
-      <Link className="button button-secondary button-full" href={`/login?next=${encodeURIComponent(next)}`}>
-        Sign in
+      <Link className="button button-primary button-full" href={`/signup?${signupParams.toString()}`}>
+        Create / activate account
       </Link>
     </div>
   );
@@ -107,7 +108,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           </>
         ) : null}
 
-        {invite.status === "pending" && !user ? <AuthLinks token={token} /> : null}
+        {invite.status === "pending" && !user ? (
+          <AuthLinks email={invite.email} token={token} />
+        ) : null}
 
         {invite.status === "pending" && user && !emailMatches ? (
           <>
