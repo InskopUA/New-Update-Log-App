@@ -17,12 +17,10 @@ type TeamPageProps = {
 
 type TeamMember = {
   id: string;
+  email: string | null;
+  full_name: string | null;
   role: string;
   status: string;
-  profile: {
-    email: string | null;
-    full_name: string | null;
-  } | null;
 };
 
 type TeamInvite = {
@@ -46,11 +44,9 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
   const origin = host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_APP_URL ?? "";
 
   const [{ data: members }, { data: invites }] = await Promise.all([
-    supabase
-      .from("company_members")
-      .select("id, role, status, profile:profiles(email, full_name)")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: true }),
+    supabase.rpc("get_company_members", {
+      target_company_id: companyId
+    }),
     supabase
       .from("company_invites")
       .select("id, email, role, status, token, created_at")
@@ -108,8 +104,8 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                 {(members as unknown as TeamMember[]).map((member) => (
                   <tr key={member.id}>
                     <td>
-                      <div>{member.profile?.full_name ?? "Unnamed user"}</div>
-                      <div className="stat-note">{member.profile?.email}</div>
+                      <div>{member.full_name || "Unnamed user"}</div>
+                      <div className="stat-note">{member.email}</div>
                     </td>
                     <td>{roleLabel(member.role)}</td>
                     <td>

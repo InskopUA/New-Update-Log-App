@@ -295,6 +295,36 @@ begin
 end;
 $$;
 
+create or replace function public.get_company_members(target_company_id uuid)
+returns table (
+  id uuid,
+  user_id uuid,
+  email text,
+  full_name text,
+  role public.app_role,
+  status text,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    cm.id,
+    cm.user_id,
+    p.email,
+    p.full_name,
+    cm.role,
+    cm.status,
+    cm.created_at
+  from public.company_members cm
+  left join public.profiles p on p.id = cm.user_id
+  where cm.company_id = target_company_id
+    and public.is_company_member(target_company_id)
+  order by cm.created_at asc;
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.companies enable row level security;
 alter table public.company_members enable row level security;
@@ -370,6 +400,7 @@ with check (public.has_company_role(company_id, array['owner', 'admin']::public.
 grant execute on function public.create_company(text) to authenticated;
 grant execute on function public.get_invite_by_token(text) to anon, authenticated;
 grant execute on function public.accept_company_invite(text) to authenticated;
+grant execute on function public.get_company_members(uuid) to authenticated;
 grant execute on function public.is_company_member(uuid, uuid) to authenticated;
 grant execute on function public.has_company_role(uuid, public.app_role[]) to authenticated;
 grant execute on function public.shares_company_with(uuid) to authenticated;
