@@ -261,3 +261,34 @@ export async function revokeTeamInvite(formData: FormData) {
   revalidatePath("/settings/team");
   encodedRedirect("/settings/team", "message", "Invite cancelled.");
 }
+
+export async function removeTeamMember(formData: FormData) {
+  const supabase = await createClient();
+  const membershipId = getString(formData, "membership_id");
+  const companyId = getString(formData, "company_id");
+  const role = getString(formData, "role");
+
+  if (!membershipId || !companyId) {
+    encodedRedirect("/settings/team", "error", "Member could not be found.");
+  }
+
+  if (role === "owner") {
+    encodedRedirect("/settings/team", "error", "Owner cannot be removed from the workspace.");
+  }
+
+  const { error } = await supabase
+    .from("company_members")
+    .update({
+      status: "inactive"
+    })
+    .eq("id", membershipId)
+    .eq("company_id", companyId)
+    .neq("role", "owner");
+
+  if (error) {
+    encodedRedirect("/settings/team", "error", "Member could not be removed.");
+  }
+
+  revalidatePath("/settings/team");
+  encodedRedirect("/settings/team", "message", "Member removed.");
+}

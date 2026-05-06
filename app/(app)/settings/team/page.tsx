@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { createTeamInvite, revokeTeamInvite } from "@/lib/auth/actions";
+import { createTeamInvite, removeTeamMember, revokeTeamInvite } from "@/lib/auth/actions";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { canManageTeam, roleLabel } from "@/lib/permissions";
@@ -54,6 +54,9 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
       .eq("status", "pending")
       .order("created_at", { ascending: false })
   ]);
+  const activeMembers = ((members as unknown as TeamMember[] | null) ?? []).filter(
+    (member) => member.status === "active"
+  );
 
   return (
     <>
@@ -92,17 +95,18 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
 
       <div style={{ marginTop: 16 }}>
         <Panel title="Members">
-          {(members as unknown as TeamMember[] | null)?.length ? (
+          {activeMembers.length ? (
             <table className="table">
               <thead>
                 <tr>
                   <th>User</th>
                   <th>Role</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {(members as unknown as TeamMember[]).map((member) => (
+                {activeMembers.map((member) => (
                   <tr key={member.id}>
                     <td>
                       <div>{member.full_name || "Unnamed user"}</div>
@@ -111,6 +115,20 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                     <td>{roleLabel(member.role)}</td>
                     <td>
                       <span className="badge">{member.status}</span>
+                    </td>
+                    <td>
+                      {canInvite && member.role !== "owner" ? (
+                        <form action={removeTeamMember}>
+                          <input name="membership_id" type="hidden" value={member.id} />
+                          <input name="company_id" type="hidden" value={companyId} />
+                          <input name="role" type="hidden" value={member.role} />
+                          <Button type="submit" variant="secondary">
+                            Remove
+                          </Button>
+                        </form>
+                      ) : (
+                        <span className="stat-note">None</span>
+                      )}
                     </td>
                   </tr>
                 ))}
