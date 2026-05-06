@@ -51,6 +51,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
       .from("company_invites")
       .select("id, email, role, status, token, created_at")
       .eq("company_id", companyId)
+      .eq("status", "pending")
       .order("created_at", { ascending: false })
   ]);
 
@@ -122,7 +123,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <Panel title="Invites">
+        <Panel title="Pending invites">
           {(invites as TeamInvite[] | null)?.length ? (
             <table className="table">
               <thead>
@@ -143,16 +144,12 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                       <span className="badge">{invite.status}</span>
                     </td>
                     <td>
-                      {invite.status === "pending" ? (
-                        <a className="muted-link" href={`${origin}/invite/${invite.token}`}>
-                          Open link
-                        </a>
-                      ) : (
-                        <span className="stat-note">Unavailable</span>
-                      )}
+                      <a className="muted-link" href={`${origin}/invite/${invite.token}`}>
+                        Open link
+                      </a>
                     </td>
                     <td>
-                      {invite.status === "pending" && canInvite ? (
+                      {canInvite ? (
                         <form action={revokeTeamInvite}>
                           <input name="invite_id" type="hidden" value={invite.id} />
                           <input name="company_id" type="hidden" value={companyId} />
@@ -160,9 +157,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                             Cancel
                           </Button>
                         </form>
-                      ) : (
-                        <span className="stat-note">None</span>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))}
