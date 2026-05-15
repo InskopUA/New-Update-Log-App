@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -7,42 +6,28 @@ import {
   type OperationalReport
 } from "@/lib/reports/analytics";
 import { issueTypeLabel } from "@/lib/reports/taxonomy";
+import { ReportRangeFilters } from "@/components/reports/report-range-filters";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 
 type DashboardPageProps = {
   searchParams: Promise<{
+    driver_ids?: string;
+    end_date?: string;
     range?: string;
+    start_date?: string;
   }>;
 };
 
-function RangeFilters({ activeRange }: { activeRange: string }) {
-  const filters = [
-    ["7d", "7 days"],
-    ["30d", "30 days"],
-    ["90d", "90 days"],
-    ["all", "All time"]
-  ];
-
-  return (
-    <div className="filters">
-      {filters.map(([value, label]) => (
-        <Link
-          className={`filter-link ${activeRange === value ? "filter-link-active" : ""}`}
-          href={`/dashboard?range=${value}`}
-          key={value}
-        >
-          {label}
-        </Link>
-      ))}
-    </div>
-  );
+function getSelectedDriverIds(value: string | undefined) {
+  return value ? value.split(",").filter(Boolean) : [];
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
   const range = params.range ?? "30d";
-  const dateRange = getDateRange(range);
+  const dateRange = getDateRange(range, params.start_date, params.end_date);
+  const selectedDriverIds = getSelectedDriverIds(params.driver_ids);
   const context = await getAppContext();
   const supabase = await createClient();
   const companyId = context.activeMembership?.company.id;
@@ -61,9 +46,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     })
   ]);
 
-  const reportRows = ((reports as OperationalReport[] | null) ?? []);
+  const reportRows = ((reports as OperationalReport[] | null) ?? []).filter(
+    (report) => !selectedDriverIds.length || selectedDriverIds.includes(report.driver_id ?? "")
+  );
   const analytics = getReportAnalytics(reportRows);
-  const activeDrivers = ((drivers as Array<{ status: string }> | null) ?? []).filter(
+  const driverRows = (drivers as Array<{ full_name: string; id: string; status: string }> | null) ?? [];
+  const driverOptions = driverRows
+    .filter((driver) => driver.status === "active")
+    .map((driver) => ({
+      id: driver.id,
+      label: driver.full_name
+    }));
+  const activeDrivers = driverRows.filter(
     (driver) => driver.status === "active"
   ).length;
   const activeTrucks = ((trucks as Array<{ status: string }> | null) ?? []).filter(
@@ -73,7 +67,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <>
       <PageHeader
-        action={<RangeFilters activeRange={range} />}
+        action={
+          <ReportRangeFilters
+            activeRange={range}
+            basePath="/dashboard"
+            drivers={driverOptions}
+            endDate={dateRange.endDate}
+            selectedDriverIds={selectedDriverIds}
+            startDate={dateRange.startDate}
+          />
+        }
         description="Operational pulse built from reports submitted by dispatchers and admins."
         title="Dashboard"
       />

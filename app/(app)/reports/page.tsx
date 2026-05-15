@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -7,15 +6,19 @@ import {
   type OperationalReport
 } from "@/lib/reports/analytics";
 import { categoryLabel, issueTypeLabel } from "@/lib/reports/taxonomy";
+import { ReportRangeFilters } from "@/components/reports/report-range-filters";
 import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 
 type ReportsPageProps = {
   searchParams: Promise<{
+    driver_ids?: string;
+    end_date?: string;
     error?: string;
     message?: string;
     range?: string;
+    start_date?: string;
   }>;
 };
 
@@ -31,50 +34,56 @@ function formatDate(value: string) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
-function RangeFilters({ activeRange }: { activeRange: string }) {
-  const filters = [
-    ["7d", "7 days"],
-    ["30d", "30 days"],
-    ["90d", "90 days"],
-    ["all", "All time"]
-  ];
-
-  return (
-    <div className="filters">
-      {filters.map(([value, label]) => (
-        <Link
-          className={`filter-link ${activeRange === value ? "filter-link-active" : ""}`}
-          href={`/reports?range=${value}`}
-          key={value}
-        >
-          {label}
-        </Link>
-      ))}
-    </div>
-  );
+function getSelectedDriverIds(value: string | undefined) {
+  return value ? value.split(",").filter(Boolean) : [];
 }
 
 export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const params = await searchParams;
   const range = params.range ?? "30d";
-  const dateRange = getDateRange(range);
+  const dateRange = getDateRange(range, params.start_date, params.end_date);
+  const selectedDriverIds = getSelectedDriverIds(params.driver_ids);
   const context = await getAppContext();
   const supabase = await createClient();
   const companyId = context.activeMembership?.company.id;
 
-  const { data } = await supabase.rpc("get_operational_reports", {
-    end_date: dateRange.endDate,
-    start_date: dateRange.startDate,
-    target_company_id: companyId
-  });
+  const [{ data }, { data: drivers }] = await Promise.all([
+    supabase.rpc("get_operational_reports", {
+      end_date: dateRange.endDate,
+      start_date: dateRange.startDate,
+      target_company_id: companyId
+    }),
+    supabase.rpc("get_drivers", {
+      target_company_id: companyId
+    })
+  ]);
 
-  const reports = ((data as OperationalReport[] | null) ?? []);
+  const reports = ((data as OperationalReport[] | null) ?? []).filter(
+    (report) => !selectedDriverIds.length || selectedDriverIds.includes(report.driver_id ?? "")
+  );
   const analytics = getReportAnalytics(reports);
+  const driverOptions = (
+    (drivers as Array<{ full_name: string; id: string; status: string }> | null) ?? []
+  )
+    .filter((driver) => driver.status === "active")
+    .map((driver) => ({
+      id: driver.id,
+      label: driver.full_name
+    }));
 
   return (
     <>
       <PageHeader
-        action={<RangeFilters activeRange={range} />}
+        action={
+          <ReportRangeFilters
+            activeRange={range}
+            basePath="/reports"
+            drivers={driverOptions}
+            endDate={dateRange.endDate}
+            selectedDriverIds={selectedDriverIds}
+            startDate={dateRange.startDate}
+          />
+        }
         description="Operational reports created by dispatchers and admins. This is the raw event history behind future scoring and AI summaries."
         title="Reports"
       />

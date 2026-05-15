@@ -5,6 +5,7 @@ import { roleLabel } from "@/lib/permissions";
 import type { Membership } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { AddReportModal } from "@/components/reports/add-report-modal";
+import { SidebarToggle } from "@/components/app/sidebar-toggle";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -62,15 +63,18 @@ export function AppShell({
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link className="brand" href="/dashboard">
-          <span className="brand-mark">
-            <Truck size={17} strokeWidth={2.4} />
-          </span>
-          <span className="brand-text">
-            <span className="brand-name">DeepTruck</span>
-            <span className="brand-subtitle">{activeMembership.company.name}</span>
-          </span>
-        </Link>
+        <div className="sidebar-head">
+          <Link className="brand" href="/dashboard">
+            <span className="brand-mark">
+              <Truck size={17} strokeWidth={2.4} />
+            </span>
+            <span className="brand-text">
+              <span className="brand-name">DeepTruck</span>
+              <span className="brand-subtitle">{activeMembership.company.name}</span>
+            </span>
+          </Link>
+          <SidebarToggle />
+        </div>
 
         <nav className="nav" aria-label="Main navigation">
           {navItems.map((item) => {

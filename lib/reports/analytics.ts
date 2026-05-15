@@ -78,9 +78,25 @@ export function getReportAnalytics(reports: OperationalReport[]) {
   };
 }
 
-export function getDateRange(range: string | undefined) {
+function isDateString(value: string | undefined) {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+export function getDateRange(
+  range: string | undefined,
+  customStartDate?: string,
+  customEndDate?: string
+) {
   const now = new Date();
   const endDate = now.toISOString().slice(0, 10);
+
+  if (range === "custom" && isDateString(customStartDate) && isDateString(customEndDate)) {
+    return {
+      endDate: customEndDate,
+      label: `${customStartDate} to ${customEndDate}`,
+      startDate: customStartDate
+    };
+  }
 
   if (range === "all") {
     return {
