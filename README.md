@@ -54,5 +54,6 @@ For an existing database that already has the foundation tables, run:
 supabase/invite-flow.sql
 supabase/team-members.sql
 supabase/drivers.sql
+supabase/trucks.sql
 ```
 - Light, minimal SaaS dashboard layout

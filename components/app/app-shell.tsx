@@ -23,6 +23,11 @@ const navItems = [
     icon: IdCard
   },
   {
+    href: "/trucks",
+    label: "Trucks",
+    icon: Truck
+  },
+  {
     href: "/settings/team",
     label: "Team",
     icon: UsersRound
