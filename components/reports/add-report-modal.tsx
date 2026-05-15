@@ -35,6 +35,14 @@ type CategoryState = {
   touched: boolean;
 };
 
+type ReportDraft = {
+  activeCategory: ReportCategory;
+  loadReference: string;
+  reportDate: string;
+  sections: Record<ReportCategory, CategoryState>;
+  selectedDriverId: string;
+};
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -102,8 +110,12 @@ function getSectionError(section: CategoryState) {
 export function AddReportModal({ companyId, drivers }: AddReportModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isDraftChoiceOpen, setIsDraftChoiceOpen] = useState(false);
+  const [isClosePromptOpen, setIsClosePromptOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<ReportCategory>("truck_status");
+  const [reportDate, setReportDate] = useState(today());
   const [selectedDriverId, setSelectedDriverId] = useState("");
+  const [loadReference, setLoadReference] = useState("");
   const [sections, setSections] = useState(createInitialSections);
   const activeSection = sections[activeCategory];
   const issueTypes = useMemo(() => reportIssueTypes[activeCategory], [activeCategory]);
@@ -117,15 +129,131 @@ export function AddReportModal({ companyId, drivers }: AddReportModalProps) {
     setMounted(true);
   }, []);
 
+  function getDraftKey() {
+    return `deeptruck:report-draft:${companyId}`;
+  }
+
+  function getCurrentDraft(): ReportDraft {
+    return {
+      activeCategory,
+      loadReference,
+      reportDate,
+      sections,
+      selectedDriverId
+    };
+  }
+
+  function hasDraftWork() {
+    return Boolean(
+      selectedDriverId ||
+        loadReference.trim() ||
+        reportDate !== today() ||
+        categoryOrder.some((category) => {
+          const section = sections[category];
+          const initial = createInitialSection(category);
+
+          return (
+            section.completed ||
+            section.touched ||
+            section.issueType !== initial.issueType ||
+            section.severity !== initial.severity ||
+            section.downtimeHours !== initial.downtimeHours ||
+            section.explanation.trim()
+          );
+        })
+    );
+  }
+
+  function saveDraft() {
+    window.localStorage.setItem(getDraftKey(), JSON.stringify(getCurrentDraft()));
+  }
+
+  function clearDraft() {
+    window.localStorage.removeItem(getDraftKey());
+  }
+
+  function loadDraft(draft: ReportDraft) {
+    setActiveCategory(draft.activeCategory);
+    setReportDate(draft.reportDate || today());
+    setSelectedDriverId(draft.selectedDriverId ?? "");
+    setLoadReference(draft.loadReference ?? "");
+    setSections(draft.sections ?? createInitialSections());
+  }
+
+  function getSavedDraft() {
+    const savedDraft = window.localStorage.getItem(getDraftKey());
+
+    if (!savedDraft) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(savedDraft) as ReportDraft;
+    } catch {
+      clearDraft();
+      return null;
+    }
+  }
+
+  function openReport() {
+    if (getSavedDraft()) {
+      setIsDraftChoiceOpen(true);
+      return;
+    }
+
+    resetModal();
+    setIsOpen(true);
+  }
+
   function resetModal() {
     setActiveCategory("truck_status");
+    setReportDate(today());
     setSelectedDriverId("");
+    setLoadReference("");
     setSections(createInitialSections());
   }
 
-  function closeModal() {
+  function closeWithoutSaving() {
     setIsOpen(false);
+    setIsClosePromptOpen(false);
     resetModal();
+  }
+
+  function requestCloseModal() {
+    if (hasDraftWork()) {
+      setIsClosePromptOpen(true);
+      return;
+    }
+
+    closeWithoutSaving();
+  }
+
+  function saveDraftAndClose() {
+    saveDraft();
+    closeWithoutSaving();
+  }
+
+  function discardDraftAndClose() {
+    clearDraft();
+    closeWithoutSaving();
+  }
+
+  function continueDraft() {
+    const savedDraft = getSavedDraft();
+
+    if (savedDraft) {
+      loadDraft(savedDraft);
+    }
+
+    setIsDraftChoiceOpen(false);
+    setIsOpen(true);
+  }
+
+  function startNewReport() {
+    clearDraft();
+    resetModal();
+    setIsDraftChoiceOpen(false);
+    setIsOpen(true);
   }
 
   function updateActiveSection(updates: Partial<CategoryState>) {
@@ -203,12 +331,17 @@ export function AddReportModal({ companyId, drivers }: AddReportModalProps) {
               count good days too.
             </p>
           </div>
-          <button aria-label="Close" className="icon-button" onClick={closeModal} type="button">
+          <button
+            aria-label="Close"
+            className="icon-button"
+            onClick={requestCloseModal}
+            type="button"
+          >
             <X size={17} />
           </button>
         </div>
 
-        <form action={createReport} className="form report-form">
+        <form action={createReport} className="form report-form" onSubmit={clearDraft}>
           <input name="company_id" type="hidden" value={companyId} />
           <input name="driver_id" type="hidden" value={selectedDriverId} />
           {categoryOrder.map((category) => (
@@ -239,7 +372,13 @@ export function AddReportModal({ companyId, drivers }: AddReportModalProps) {
           <div className="grid grid-3">
             <label className="field">
               <span className="label">Date</span>
-              <input className="input" defaultValue={today()} name="report_date" type="date" />
+              <input
+                className="input"
+                name="report_date"
+                onChange={(event) => setReportDate(event.target.value)}
+                type="date"
+                value={reportDate}
+              />
             </label>
             <label className="field">
               <span className="label">Driver *</span>
@@ -270,8 +409,10 @@ export function AddReportModal({ companyId, drivers }: AddReportModalProps) {
             <input
               className="input"
               name="load_reference"
+              onChange={(event) => setLoadReference(event.target.value)}
               placeholder="Optional load ID, broker, lane, or pickup city"
               type="text"
+              value={loadReference}
             />
           </label>
 
@@ -415,23 +556,75 @@ export function AddReportModal({ companyId, drivers }: AddReportModalProps) {
                   : "Select driver"
                 : "Complete all four categories"}
             </span>
-            <Button type="button" variant="secondary" onClick={closeModal}>
+            <Button type="button" variant="secondary" onClick={requestCloseModal}>
               Cancel
             </Button>
           </div>
         </form>
+
+        {isClosePromptOpen ? (
+          <div className="draft-prompt-backdrop">
+            <div className="draft-prompt">
+              <h3>Save report as draft?</h3>
+              <p>You can continue this unfinished report later from Add report.</p>
+              <div className="draft-prompt-actions">
+                <Button type="button" onClick={saveDraftAndClose}>
+                  Save draft
+                </Button>
+                <Button type="button" variant="secondary" onClick={discardDraftAndClose}>
+                  Discard
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setIsClosePromptOpen(false)}>
+                  Keep editing
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const draftChoice = (
+    <div className="modal-backdrop" role="presentation">
+      <div aria-modal="true" className="modal draft-choice-modal" role="dialog">
+        <div className="modal-header">
+          <div>
+            <h2 className="modal-title">Continue draft?</h2>
+            <p className="modal-description">
+              There is an unfinished report saved on this device.
+            </p>
+          </div>
+          <button
+            aria-label="Close"
+            className="icon-button"
+            onClick={() => setIsDraftChoiceOpen(false)}
+            type="button"
+          >
+            <X size={17} />
+          </button>
+        </div>
+        <div className="draft-choice-actions">
+          <Button type="button" onClick={continueDraft}>
+            Continue draft
+          </Button>
+          <Button type="button" variant="secondary" onClick={startNewReport}>
+            Start new report
+          </Button>
+        </div>
       </div>
     </div>
   );
 
   return (
     <>
-      <Button type="button" onClick={() => setIsOpen(true)}>
+      <Button type="button" onClick={openReport}>
         <Plus size={16} />
         Add report
       </Button>
 
       {isOpen && mounted ? createPortal(modal, document.body) : null}
+      {isDraftChoiceOpen && mounted ? createPortal(draftChoice, document.body) : null}
     </>
   );
 }
