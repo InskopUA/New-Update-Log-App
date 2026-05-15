@@ -55,5 +55,6 @@ supabase/invite-flow.sql
 supabase/team-members.sql
 supabase/drivers.sql
 supabase/trucks.sql
+supabase/reports.sql
 ```
 - Light, minimal SaaS dashboard layout

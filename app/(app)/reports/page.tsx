@@ -6,15 +6,30 @@ import {
   getReportAnalytics,
   type OperationalReport
 } from "@/lib/reports/analytics";
-import { issueTypeLabel } from "@/lib/reports/taxonomy";
+import { categoryLabel, issueTypeLabel } from "@/lib/reports/taxonomy";
+import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 
-type DashboardPageProps = {
+type ReportsPageProps = {
   searchParams: Promise<{
+    error?: string;
+    message?: string;
     range?: string;
   }>;
 };
+
+function severityClass(severity: string) {
+  return `badge badge-${severity}`;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(new Date(`${value}T00:00:00`));
+}
 
 function RangeFilters({ activeRange }: { activeRange: string }) {
   const filters = [
@@ -29,7 +44,7 @@ function RangeFilters({ activeRange }: { activeRange: string }) {
       {filters.map(([value, label]) => (
         <Link
           className={`filter-link ${activeRange === value ? "filter-link-active" : ""}`}
-          href={`/dashboard?range=${value}`}
+          href={`/reports?range=${value}`}
           key={value}
         >
           {label}
@@ -39,7 +54,7 @@ function RangeFilters({ activeRange }: { activeRange: string }) {
   );
 }
 
-export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const params = await searchParams;
   const range = params.range ?? "30d";
   const dateRange = getDateRange(range);
@@ -47,36 +62,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const supabase = await createClient();
   const companyId = context.activeMembership?.company.id;
 
-  const [{ data: reports }, { data: drivers }, { data: trucks }] = await Promise.all([
-    supabase.rpc("get_operational_reports", {
-      end_date: dateRange.endDate,
-      start_date: dateRange.startDate,
-      target_company_id: companyId
-    }),
-    supabase.rpc("get_drivers", {
-      target_company_id: companyId
-    }),
-    supabase.rpc("get_trucks", {
-      target_company_id: companyId
-    })
-  ]);
+  const { data } = await supabase.rpc("get_operational_reports", {
+    end_date: dateRange.endDate,
+    start_date: dateRange.startDate,
+    target_company_id: companyId
+  });
 
-  const reportRows = ((reports as OperationalReport[] | null) ?? []);
-  const analytics = getReportAnalytics(reportRows);
-  const activeDrivers = ((drivers as Array<{ status: string }> | null) ?? []).filter(
-    (driver) => driver.status === "active"
-  ).length;
-  const activeTrucks = ((trucks as Array<{ status: string }> | null) ?? []).filter(
-    (truck) => truck.status === "active"
-  ).length;
+  const reports = ((data as OperationalReport[] | null) ?? []);
+  const analytics = getReportAnalytics(reports);
 
   return (
     <>
       <PageHeader
         action={<RangeFilters activeRange={range} />}
-        description="Operational pulse built from reports submitted by dispatchers and admins."
-        title="Dashboard"
+        description="Operational reports created by dispatchers and admins. This is the raw event history behind future scoring and AI summaries."
+        title="Reports"
       />
+
+      <Notice message={params.error} type="error" />
+      <Notice message={params.message} />
 
       <div className="grid grid-3">
         <section className="panel stat stat-accent">
@@ -97,29 +101,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <section className="panel stat">
-          <div className="stat-label">Active drivers</div>
-          <div className="stat-value">{activeDrivers}</div>
-          <div className="stat-note">Available for report assignment</div>
-        </section>
-        <section className="panel stat">
-          <div className="stat-label">Active trucks</div>
-          <div className="stat-value">{activeTrucks}</div>
-          <div className="stat-note">Current working units</div>
-        </section>
-        <section className="panel stat">
-          <div className="stat-label">Problem density</div>
-          <div className="stat-value">
-            {activeTrucks ? (analytics.totalReports / activeTrucks).toFixed(1) : "0.0"}
-          </div>
-          <div className="stat-note">Reports per active truck</div>
-        </section>
-      </div>
-
-      <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <Panel title="Repeated problems">
-          {analytics.byIssue.length ? (
-            analytics.byIssue.slice(0, 6).map(([label, value]) => (
+        <Panel title="Problem categories">
+          {analytics.byCategory.length ? (
+            analytics.byCategory.map(([label, value]) => (
               <div className="metric-row" key={label}>
                 <span className="metric-label">{label}</span>
                 <span className="metric-bar">
@@ -132,13 +116,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             ))
           ) : (
-            <div className="empty">No problems reported yet.</div>
+            <div className="empty">No category data yet.</div>
           )}
         </Panel>
 
-        <Panel title="Drivers to watch">
+        <Panel title="Top driver issues">
           {analytics.byDriver.length ? (
-            analytics.byDriver.slice(0, 6).map(([label, value]) => (
+            analytics.byDriver.slice(0, 5).map(([label, value]) => (
               <div className="metric-row" key={label}>
                 <span className="metric-label">{label}</span>
                 <span className="metric-bar">
@@ -151,13 +135,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             ))
           ) : (
-            <div className="empty">No driver reports yet.</div>
+            <div className="empty">No driver issue data yet.</div>
           )}
         </Panel>
 
-        <Panel title="Trucks to watch">
+        <Panel title="Top truck issues">
           {analytics.byTruck.length ? (
-            analytics.byTruck.slice(0, 6).map(([label, value]) => (
+            analytics.byTruck.slice(0, 5).map(([label, value]) => (
               <div className="metric-row" key={label}>
                 <span className="metric-label">{label}</span>
                 <span className="metric-bar">
@@ -170,18 +154,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             ))
           ) : (
-            <div className="empty">No truck reports yet.</div>
+            <div className="empty">No truck issue data yet.</div>
           )}
         </Panel>
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <Panel title="Latest reports">
-          {reportRows.length ? (
+        <Panel title="Report history">
+          {reports.length ? (
             <table className="table">
               <thead>
                 <tr>
                   <th>Date</th>
+                  <th>Type</th>
                   <th>Problem</th>
                   <th>Severity</th>
                   <th>Driver / Truck</th>
@@ -189,12 +174,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </tr>
               </thead>
               <tbody>
-                {reportRows.slice(0, 8).map((report) => (
+                {reports.map((report) => (
                   <tr key={report.id}>
-                    <td>{report.report_date}</td>
+                    <td>{formatDate(report.report_date)}</td>
+                    <td>{categoryLabel(report.category)}</td>
                     <td>{issueTypeLabel(report.category, report.issue_type)}</td>
                     <td>
-                      <span className={`badge badge-${report.severity}`}>{report.severity}</span>
+                      <span className={severityClass(report.severity)}>{report.severity}</span>
                     </td>
                     <td>
                       <div>{report.driver_name || "No driver"}</div>

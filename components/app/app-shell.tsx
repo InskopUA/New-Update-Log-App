@@ -1,14 +1,25 @@
-import { BarChart3, IdCard, Settings, Truck, UsersRound } from "lucide-react";
+import { BarChart3, ClipboardList, IdCard, Settings, Truck, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/lib/auth/actions";
 import { roleLabel } from "@/lib/permissions";
 import type { Membership } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
+import { AddReportModal } from "@/components/reports/add-report-modal";
 
 type AppShellProps = {
   children: React.ReactNode;
   email: string;
   activeMembership: Membership;
+  reportDrivers: Array<{
+    id: string;
+    label: string;
+    status: string;
+  }>;
+  reportTrucks: Array<{
+    id: string;
+    label: string;
+    status: string;
+  }>;
 };
 
 const navItems = [
@@ -28,6 +39,11 @@ const navItems = [
     icon: Truck
   },
   {
+    href: "/reports",
+    label: "Reports",
+    icon: ClipboardList
+  },
+  {
     href: "/settings/team",
     label: "Team",
     icon: UsersRound
@@ -39,7 +55,15 @@ const navItems = [
   }
 ];
 
-export function AppShell({ children, email, activeMembership }: AppShellProps) {
+export function AppShell({
+  children,
+  email,
+  activeMembership,
+  reportDrivers,
+  reportTrucks
+}: AppShellProps) {
+  const canCreateReports = ["owner", "admin", "dispatcher"].includes(activeMembership.role);
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -82,6 +106,13 @@ export function AppShell({ children, email, activeMembership }: AppShellProps) {
           <div>
             <div className="topbar-title">{activeMembership.company.name}</div>
           </div>
+          {canCreateReports ? (
+            <AddReportModal
+              companyId={activeMembership.company.id}
+              drivers={reportDrivers}
+              trucks={reportTrucks}
+            />
+          ) : null}
         </div>
         <div className="content">{children}</div>
       </main>
