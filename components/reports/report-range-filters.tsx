@@ -10,13 +10,20 @@ type DriverFilterOption = {
   label: string;
 };
 
+type TruckFilterOption = {
+  id: string;
+  label: string;
+};
+
 type ReportRangeFiltersProps = {
   activeRange: string;
   basePath: "/dashboard" | "/reports";
   drivers: DriverFilterOption[];
   endDate?: string | null;
   selectedDriverIds: string[];
+  selectedTruckIds?: string[];
   startDate?: string | null;
+  trucks?: TruckFilterOption[];
 };
 
 const quickFilters = [
@@ -42,12 +49,15 @@ export function ReportRangeFilters({
   drivers,
   endDate,
   selectedDriverIds,
-  startDate
+  selectedTruckIds = [],
+  startDate,
+  trucks = []
 }: ReportRangeFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [customStartDate, setCustomStartDate] = useState(startDate ?? thirtyDaysAgo());
   const [customEndDate, setCustomEndDate] = useState(endDate ?? today());
   const [driverIds, setDriverIds] = useState<string[]>(selectedDriverIds);
+  const [truckIds, setTruckIds] = useState<string[]>(selectedTruckIds);
   const customActive = activeRange === "custom";
 
   function toggleDriver(driverId: string) {
@@ -55,6 +65,14 @@ export function ReportRangeFilters({
       current.includes(driverId)
         ? current.filter((id) => id !== driverId)
         : [...current, driverId]
+    );
+  }
+
+  function toggleTruck(truckId: string) {
+    setTruckIds((current) =>
+      current.includes(truckId)
+        ? current.filter((id) => id !== truckId)
+        : [...current, truckId]
     );
   }
 
@@ -67,6 +85,10 @@ export function ReportRangeFilters({
 
     if (driverIds.length) {
       params.set("driver_ids", driverIds.join(","));
+    }
+
+    if (truckIds.length) {
+      params.set("truck_ids", truckIds.join(","));
     }
 
     window.location.href = `${basePath}?${params.toString()}`;
@@ -100,7 +122,7 @@ export function ReportRangeFilters({
               <div>
                 <h2 className="modal-title">Custom filter</h2>
                 <p className="modal-description">
-                  Select a date range and one, multiple, or all drivers.
+                  Select a date range, drivers, and trucks.
                 </p>
               </div>
               <button
@@ -159,6 +181,33 @@ export function ReportRangeFilters({
                   ))}
                 </div>
               </div>
+
+              {trucks.length ? (
+                <div className="field">
+                  <div className="field-row">
+                    <span className="label">Trucks</span>
+                    <button
+                      className="inline-action"
+                      onClick={() => setTruckIds([])}
+                      type="button"
+                    >
+                      All trucks
+                    </button>
+                  </div>
+                  <div className="driver-filter-list">
+                    {trucks.map((truck) => (
+                      <label className="check-row" key={truck.id}>
+                        <input
+                          checked={truckIds.includes(truck.id)}
+                          onChange={() => toggleTruck(truck.id)}
+                          type="checkbox"
+                        />
+                        <span>{truck.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="modal-actions">
                 <Button type="button" onClick={applyCustomFilter}>

@@ -1,3 +1,5 @@
+import Link from "next/link";
+import type { CSSProperties } from "react";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -16,18 +18,58 @@ type DashboardPageProps = {
     end_date?: string;
     range?: string;
     start_date?: string;
+    truck_ids?: string;
   }>;
 };
 
-function getSelectedDriverIds(value: string | undefined) {
+function getSelectedIds(value: string | undefined) {
   return value ? value.split(",").filter(Boolean) : [];
+}
+
+function percent(value: number, total: number) {
+  return total ? Math.round((value / total) * 100) : 0;
+}
+
+function buildReportsHref({
+  driverId,
+  endDate,
+  range,
+  startDate,
+  truckId
+}: {
+  driverId?: string;
+  endDate?: string | null;
+  range: string;
+  startDate?: string | null;
+  truckId?: string;
+}) {
+  const params = new URLSearchParams({ range });
+
+  if (startDate) {
+    params.set("start_date", startDate);
+  }
+
+  if (endDate) {
+    params.set("end_date", endDate);
+  }
+
+  if (driverId) {
+    params.set("driver_ids", driverId);
+  }
+
+  if (truckId) {
+    params.set("truck_ids", truckId);
+  }
+
+  return `/reports?${params.toString()}`;
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
   const range = params.range ?? "30d";
   const dateRange = getDateRange(range, params.start_date, params.end_date);
-  const selectedDriverIds = getSelectedDriverIds(params.driver_ids);
+  const selectedDriverIds = getSelectedIds(params.driver_ids);
+  const selectedTruckIds = getSelectedIds(params.truck_ids);
   const context = await getAppContext();
   const supabase = await createClient();
   const companyId = context.activeMembership?.company.id;
@@ -47,7 +89,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ]);
 
   const reportRows = ((reports as OperationalReport[] | null) ?? []).filter(
-    (report) => !selectedDriverIds.length || selectedDriverIds.includes(report.driver_id ?? "")
+    (report) =>
+      (!selectedDriverIds.length || selectedDriverIds.includes(report.driver_id ?? "")) &&
+      (!selectedTruckIds.length || selectedTruckIds.includes(report.truck_id ?? ""))
   );
   const analytics = getReportAnalytics(reportRows);
   const driverRows = (drivers as Array<{ full_name: string; id: string; status: string }> | null) ?? [];
@@ -60,9 +104,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activeDrivers = driverRows.filter(
     (driver) => driver.status === "active"
   ).length;
-  const activeTrucks = ((trucks as Array<{ status: string }> | null) ?? []).filter(
+  const truckRows = (trucks as Array<{ id: string; status: string; unit_number: string }> | null) ?? [];
+  const truckOptions = truckRows
+    .filter((truck) => truck.status !== "inactive")
+    .map((truck) => ({
+      id: truck.id,
+      label: `Truck ${truck.unit_number}`
+    }));
+  const activeTrucks = truckRows.filter(
     (truck) => truck.status === "active"
   ).length;
+  const maxTrend = Math.max(
+    1,
+    ...analytics.byDay.map((point) => Math.max(point.problems, point.clean))
+  );
+  const recentTrend = analytics.byDay.slice(-14);
+  const topIssue = analytics.byIssue[0];
+  const topCategory = analytics.byCategory[0];
 
   return (
     <>
@@ -74,57 +132,103 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             drivers={driverOptions}
             endDate={dateRange.endDate}
             selectedDriverIds={selectedDriverIds}
+            selectedTruckIds={selectedTruckIds}
             startDate={dateRange.startDate}
+            trucks={truckOptions}
           />
         }
-        description="Operational pulse built from reports submitted by dispatchers and admins."
-        title="Dashboard"
+        description="Live operating signal from daily reports, clean checks, downtime, and repeated problems."
+        title="Command Center"
       />
 
-      <div className="grid grid-3">
-        <section className="panel stat stat-accent">
-          <div className="stat-label">Category checks</div>
-          <div className="stat-value">{analytics.totalReports}</div>
-          <div className="stat-note">{dateRange.label}</div>
-        </section>
-        <section className="panel stat stat-warning">
-          <div className="stat-label">Problem reports</div>
-          <div className="stat-value">{analytics.problemReports}</div>
-          <div className="stat-note">{analytics.highSeverity} high or critical</div>
-        </section>
-        <section className="panel stat stat-success">
-          <div className="stat-label">No problem checks</div>
-          <div className="stat-value">{analytics.noProblemReports}</div>
-          <div className="stat-note">Clean category reports</div>
-        </section>
-      </div>
-
-      <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <section className="panel stat">
-          <div className="stat-label">Active drivers</div>
-          <div className="stat-value">{activeDrivers}</div>
-          <div className="stat-note">Available for report assignment</div>
-        </section>
-        <section className="panel stat">
-          <div className="stat-label">Active trucks</div>
-          <div className="stat-value">{activeTrucks}</div>
-          <div className="stat-note">Current working units</div>
-        </section>
-        <section className="panel stat">
-          <div className="stat-label">Downtime</div>
-          <div className="stat-value">{analytics.totalDowntime.toFixed(1)}h</div>
-          <div className="stat-note">Reported downtime hours</div>
-        </section>
-      </div>
-
-      <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <section className="panel stat">
-          <div className="stat-label">Problem density</div>
-          <div className="stat-value">
-            {activeTrucks ? (analytics.problemReports / activeTrucks).toFixed(1) : "0.0"}
+      <div className="ops-hero">
+        <section className="neon-card neon-blue">
+          <div className="stat-label">Problem rate</div>
+          <div className="neon-value">{analytics.problemRate}%</div>
+          <div className="stat-note">
+            {analytics.problemReports} problems from {analytics.totalReports} checks
           </div>
-          <div className="stat-note">Problems per active truck</div>
         </section>
+        <section className="neon-card neon-green">
+          <div className="stat-label">Clean checks</div>
+          <div className="neon-value">{analytics.cleanRate}%</div>
+          <div className="stat-note">{analytics.noProblemReports} no-problem checks</div>
+        </section>
+        <section className="neon-card neon-orange">
+          <div className="stat-label">Downtime</div>
+          <div className="neon-value">{analytics.totalDowntime.toFixed(1)}h</div>
+          <div className="stat-note">{analytics.highSeverity} high or critical alerts</div>
+        </section>
+        <section className="neon-card neon-red">
+          <div className="stat-label">Top pressure</div>
+          <div className="neon-value neon-text-sm">{topIssue?.[0] ?? "No issues"}</div>
+          <div className="stat-note">{topCategory ? `${topCategory[0]} leads volume` : dateRange.label}</div>
+        </section>
+      </div>
+
+      <div className="dashboard-grid-main">
+        <section className="panel chart-panel">
+          <div className="panel-header">
+            <h2 className="panel-title">Daily trend</h2>
+            <span className="stat-note">{dateRange.label}</span>
+          </div>
+          <div className="trend-chart">
+            {recentTrend.length ? (
+              recentTrend.map((point) => (
+                <div className="trend-day" key={point.date}>
+                  <div className="trend-bars">
+                    <span
+                      className="trend-bar trend-bar-problem"
+                      style={{ height: `${Math.max(8, (point.problems / maxTrend) * 100)}%` }}
+                    />
+                    <span
+                      className="trend-bar trend-bar-clean"
+                      style={{ height: `${Math.max(8, (point.clean / maxTrend) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="trend-label">
+                    {new Date(`${point.date}T00:00:00`).toLocaleDateString("en-US", {
+                      day: "2-digit",
+                      month: "short"
+                    })}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="empty">No trend data yet.</div>
+            )}
+          </div>
+          <div className="chart-legend">
+            <span><i className="legend-problem" /> Problems</span>
+            <span><i className="legend-clean" /> Clean</span>
+          </div>
+        </section>
+
+        <section className="panel chart-panel">
+          <div className="panel-header">
+            <h2 className="panel-title">Fleet pulse</h2>
+            <span className="stat-note">{activeDrivers} drivers / {activeTrucks} trucks</span>
+          </div>
+          <div className="pulse-grid">
+            {analytics.byCategory.map(([label, value]) => (
+              <div className="pulse-item" key={label}>
+                <div
+                  className="pulse-ring"
+                  style={{ "--value": `${percent(value, analytics.totalReports)}%` } as CSSProperties}
+                >
+                  <span>{percent(value, analytics.totalReports)}%</span>
+                </div>
+                <div>
+                  <div className="pulse-label">{label}</div>
+                  <div className="stat-note">{value} checks</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid grid-3" style={{ marginTop: 16 }}>
         <Panel title="Repeated problems">
           {analytics.byIssue.length ? (
             analytics.byIssue.slice(0, 6).map(([label, value]) => (
@@ -145,18 +249,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </Panel>
 
         <Panel title="Drivers to watch">
-          {analytics.byDriver.length ? (
-            analytics.byDriver.slice(0, 6).map(([label, value]) => (
-              <div className="metric-row" key={label}>
-                <span className="metric-label">{label}</span>
-                <span className="metric-bar">
-                  <span
-                    className="metric-bar-fill"
-                    style={{ width: `${Math.max(8, (value / analytics.totalReports) * 100)}%` }}
-                  />
+          {analytics.driverScores.length ? (
+            analytics.driverScores.slice(0, 6).map((driver) => (
+              <Link
+                className="entity-score-row"
+                href={buildReportsHref({
+                  driverId: driver.id,
+                  endDate: dateRange.endDate,
+                  range,
+                  startDate: dateRange.startDate
+                })}
+                key={driver.id}
+              >
+                <span>
+                  <strong>{driver.label}</strong>
+                  <small>{driver.problems} problems / {driver.clean} clean</small>
                 </span>
-                <span>{value}</span>
-              </div>
+                <b>{driver.score}</b>
+              </Link>
             ))
           ) : (
             <div className="empty">No driver reports yet.</div>
@@ -164,18 +274,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </Panel>
 
         <Panel title="Trucks to watch">
-          {analytics.byTruck.length ? (
-            analytics.byTruck.slice(0, 6).map(([label, value]) => (
-              <div className="metric-row" key={label}>
-                <span className="metric-label">{label}</span>
-                <span className="metric-bar">
-                  <span
-                    className="metric-bar-fill"
-                    style={{ width: `${Math.max(8, (value / analytics.totalReports) * 100)}%` }}
-                  />
+          {analytics.truckScores.length ? (
+            analytics.truckScores.slice(0, 6).map((truck) => (
+              <Link
+                className="entity-score-row"
+                href={buildReportsHref({
+                  endDate: dateRange.endDate,
+                  range,
+                  startDate: dateRange.startDate,
+                  truckId: truck.id
+                })}
+                key={truck.id}
+              >
+                <span>
+                  <strong>{truck.label}</strong>
+                  <small>{truck.problems} problems / {truck.downtime.toFixed(1)}h downtime</small>
                 </span>
-                <span>{value}</span>
-              </div>
+                <b>{truck.score}</b>
+              </Link>
             ))
           ) : (
             <div className="empty">No truck reports yet.</div>

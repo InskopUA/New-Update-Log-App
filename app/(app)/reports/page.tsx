@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -19,6 +20,7 @@ type ReportsPageProps = {
     message?: string;
     range?: string;
     start_date?: string;
+    truck_ids?: string;
   }>;
 };
 
@@ -34,7 +36,7 @@ function formatDate(value: string) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
-function getSelectedDriverIds(value: string | undefined) {
+function getSelectedIds(value: string | undefined) {
   return value ? value.split(",").filter(Boolean) : [];
 }
 
@@ -42,12 +44,13 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const params = await searchParams;
   const range = params.range ?? "30d";
   const dateRange = getDateRange(range, params.start_date, params.end_date);
-  const selectedDriverIds = getSelectedDriverIds(params.driver_ids);
+  const selectedDriverIds = getSelectedIds(params.driver_ids);
+  const selectedTruckIds = getSelectedIds(params.truck_ids);
   const context = await getAppContext();
   const supabase = await createClient();
   const companyId = context.activeMembership?.company.id;
 
-  const [{ data }, { data: drivers }] = await Promise.all([
+  const [{ data }, { data: drivers }, { data: trucks }] = await Promise.all([
     supabase.rpc("get_operational_reports", {
       end_date: dateRange.endDate,
       start_date: dateRange.startDate,
@@ -55,11 +58,16 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     }),
     supabase.rpc("get_drivers", {
       target_company_id: companyId
+    }),
+    supabase.rpc("get_trucks", {
+      target_company_id: companyId
     })
   ]);
 
   const reports = ((data as OperationalReport[] | null) ?? []).filter(
-    (report) => !selectedDriverIds.length || selectedDriverIds.includes(report.driver_id ?? "")
+    (report) =>
+      (!selectedDriverIds.length || selectedDriverIds.includes(report.driver_id ?? "")) &&
+      (!selectedTruckIds.length || selectedTruckIds.includes(report.truck_id ?? ""))
   );
   const analytics = getReportAnalytics(reports);
   const driverOptions = (
@@ -69,6 +77,14 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     .map((driver) => ({
       id: driver.id,
       label: driver.full_name
+    }));
+  const truckOptions = (
+    (trucks as Array<{ id: string; status: string; unit_number: string }> | null) ?? []
+  )
+    .filter((truck) => truck.status !== "inactive")
+    .map((truck) => ({
+      id: truck.id,
+      label: `Truck ${truck.unit_number}`
     }));
 
   return (
@@ -81,31 +97,34 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
             drivers={driverOptions}
             endDate={dateRange.endDate}
             selectedDriverIds={selectedDriverIds}
+            selectedTruckIds={selectedTruckIds}
             startDate={dateRange.startDate}
+            trucks={truckOptions}
           />
         }
-        description="Operational reports created by dispatchers and admins. This is the raw event history behind future scoring and AI summaries."
-        title="Reports"
+        description="Explore every category check, problem, clean report, driver, truck, and explanation."
+        title="Report Explorer"
       />
 
       <Notice message={params.error} type="error" />
       <Notice message={params.message} />
 
-      <div className="grid grid-3">
-        <section className="panel stat stat-accent">
-          <div className="stat-label">Category checks</div>
-          <div className="stat-value">{analytics.totalReports}</div>
-          <div className="stat-note">{dateRange.label}</div>
+      <div className="report-explorer-strip">
+        <section className="report-strip-item">
+          <span>Checks</span>
+          <strong>{analytics.totalReports}</strong>
         </section>
-        <section className="panel stat stat-warning">
-          <div className="stat-label">Problem reports</div>
-          <div className="stat-value">{analytics.problemReports}</div>
-          <div className="stat-note">{analytics.highSeverity} high or critical</div>
+        <section className="report-strip-item">
+          <span>Problems</span>
+          <strong>{analytics.problemReports}</strong>
         </section>
-        <section className="panel stat stat-success">
-          <div className="stat-label">No problem checks</div>
-          <div className="stat-value">{analytics.noProblemReports}</div>
-          <div className="stat-note">{analytics.totalDowntime.toFixed(1)}h downtime</div>
+        <section className="report-strip-item">
+          <span>Clean</span>
+          <strong>{analytics.noProblemReports}</strong>
+        </section>
+        <section className="report-strip-item">
+          <span>Downtime</span>
+          <strong>{analytics.totalDowntime.toFixed(1)}h</strong>
         </section>
       </div>
 
@@ -192,9 +211,27 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
                       <span className={severityClass(report.severity)}>{report.severity}</span>
                     </td>
                     <td>
-                      <div>{report.driver_name || "No driver"}</div>
+                      {report.driver_id ? (
+                        <Link
+                          className="table-link"
+                          href={`/reports?range=${range}&driver_ids=${report.driver_id}`}
+                        >
+                          {report.driver_name || "No driver"}
+                        </Link>
+                      ) : (
+                        <div>{report.driver_name || "No driver"}</div>
+                      )}
                       <div className="stat-note">
-                        {report.truck_unit_number ? `Truck ${report.truck_unit_number}` : "No truck"}
+                        {report.truck_id ? (
+                          <Link
+                            className="table-link"
+                            href={`/reports?range=${range}&truck_ids=${report.truck_id}`}
+                          >
+                            Truck {report.truck_unit_number}
+                          </Link>
+                        ) : (
+                          "No truck"
+                        )}
                       </div>
                     </td>
                     <td>{report.explanation}</td>
