@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createTruck, deactivateTruck } from "@/lib/trucks/actions";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -171,16 +172,19 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
                     </td>
                     <td>{truck.current_driver_name || "Unassigned"}</td>
                     <td>
-                      {canDeactivate && truck.status !== "inactive" ? (
-                        <form action={deactivateTruck}>
-                          <input name="truck_id" type="hidden" value={truck.id} />
-                          <Button type="submit" variant="secondary">
-                            Deactivate
-                          </Button>
-                        </form>
-                      ) : (
-                        <span className="stat-note">None</span>
-                      )}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Link className="button button-secondary" href={`/trucks/${truck.id}`}>
+                          Open
+                        </Link>
+                        {canDeactivate && truck.status !== "inactive" ? (
+                          <form action={deactivateTruck}>
+                            <input name="truck_id" type="hidden" value={truck.id} />
+                            <Button type="submit" variant="secondary">
+                              Deactivate
+                            </Button>
+                          </form>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

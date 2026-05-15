@@ -72,6 +72,50 @@ as $$
     t.unit_number asc;
 $$;
 
+create or replace function public.get_truck_by_id(target_truck_id uuid)
+returns table (
+  id uuid,
+  company_id uuid,
+  unit_number text,
+  vin text,
+  make text,
+  model text,
+  year integer,
+  plate_number text,
+  status text,
+  current_driver_id uuid,
+  current_driver_name text,
+  notes text,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    t.id,
+    t.company_id,
+    t.unit_number,
+    t.vin,
+    t.make,
+    t.model,
+    t.year,
+    t.plate_number,
+    t.status,
+    t.current_driver_id,
+    d.full_name as current_driver_name,
+    t.notes,
+    t.created_at,
+    t.updated_at
+  from public.trucks t
+  left join public.drivers d on d.id = t.current_driver_id
+  where t.id = target_truck_id
+    and public.is_company_member(t.company_id)
+  limit 1;
+$$;
+
 create or replace function public.deactivate_truck(target_truck_id uuid)
 returns uuid
 language plpgsql
@@ -131,4 +175,5 @@ using (public.has_company_role(company_id, array['owner', 'admin']::public.app_r
 with check (public.has_company_role(company_id, array['owner', 'admin']::public.app_role[]));
 
 grant execute on function public.get_trucks(uuid) to authenticated;
+grant execute on function public.get_truck_by_id(uuid) to authenticated;
 grant execute on function public.deactivate_truck(uuid) to authenticated;

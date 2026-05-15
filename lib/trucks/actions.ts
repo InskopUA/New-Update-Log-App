@@ -82,6 +82,48 @@ export async function createTruck(formData: FormData) {
   encodedRedirect("/trucks", "message", "Truck created.");
 }
 
+export async function updateTruck(formData: FormData) {
+  const supabase = await createClient();
+  const truckId = getString(formData, "truck_id");
+  const unitNumber = getString(formData, "unit_number");
+  const status = getAllowedValue(
+    getString(formData, "status"),
+    ["active", "maintenance", "inactive"],
+    "active"
+  );
+
+  if (!truckId || !unitNumber) {
+    encodedRedirect("/trucks", "error", "Truck could not be updated.");
+  }
+
+  const { error } = await supabase
+    .from("trucks")
+    .update({
+      unit_number: unitNumber,
+      vin: getOptionalString(formData, "vin"),
+      make: getOptionalString(formData, "make"),
+      model: getOptionalString(formData, "model"),
+      year: getOptionalYear(formData),
+      plate_number: getOptionalString(formData, "plate_number"),
+      status,
+      current_driver_id: getOptionalString(formData, "current_driver_id"),
+      notes: getOptionalString(formData, "notes")
+    })
+    .eq("id", truckId);
+
+  if (error) {
+    const message = error.message.toLowerCase().includes("duplicate")
+      ? "A truck with this unit number already exists."
+      : "Truck could not be updated.";
+
+    encodedRedirect(`/trucks/${truckId}`, "error", message);
+  }
+
+  revalidatePath("/trucks");
+  revalidatePath(`/trucks/${truckId}`);
+  encodedRedirect(`/trucks/${truckId}`, "message", "Truck updated.");
+}
+
 export async function deactivateTruck(formData: FormData) {
   const supabase = await createClient();
   const truckId = getString(formData, "truck_id");
@@ -99,5 +141,6 @@ export async function deactivateTruck(formData: FormData) {
   }
 
   revalidatePath("/trucks");
+  revalidatePath(`/trucks/${truckId}`);
   encodedRedirect("/trucks", "message", "Truck deactivated.");
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createDriver, deactivateDriver } from "@/lib/drivers/actions";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -192,16 +193,19 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
                     <td>{driver.assigned_dispatcher_name || "Unassigned"}</td>
                     <td>{formatDate(driver.start_date)}</td>
                     <td>
-                      {canDeactivate && driver.status !== "inactive" ? (
-                        <form action={deactivateDriver}>
-                          <input name="driver_id" type="hidden" value={driver.id} />
-                          <Button type="submit" variant="secondary">
-                            Deactivate
-                          </Button>
-                        </form>
-                      ) : (
-                        <span className="stat-note">None</span>
-                      )}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Link className="button button-secondary" href={`/drivers/${driver.id}`}>
+                          Open
+                        </Link>
+                        {canDeactivate && driver.status !== "inactive" ? (
+                          <form action={deactivateDriver}>
+                            <input name="driver_id" type="hidden" value={driver.id} />
+                            <Button type="submit" variant="secondary">
+                              Deactivate
+                            </Button>
+                          </form>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

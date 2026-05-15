@@ -62,6 +62,48 @@ export async function createDriver(formData: FormData) {
   encodedRedirect("/drivers", "message", "Driver created.");
 }
 
+export async function updateDriver(formData: FormData) {
+  const supabase = await createClient();
+  const driverId = getString(formData, "driver_id");
+  const fullName = getString(formData, "full_name");
+  const driverType = getAllowedValue(
+    getString(formData, "driver_type"),
+    ["company_driver", "owner_operator", "contractor"],
+    "company_driver"
+  );
+  const status = getAllowedValue(
+    getString(formData, "status"),
+    ["active", "on_hold", "inactive"],
+    "active"
+  );
+
+  if (!driverId || !fullName) {
+    encodedRedirect("/drivers", "error", "Driver could not be updated.");
+  }
+
+  const { error } = await supabase
+    .from("drivers")
+    .update({
+      full_name: fullName,
+      phone: getOptionalString(formData, "phone"),
+      email: getOptionalString(formData, "email"),
+      status,
+      driver_type: driverType,
+      assigned_dispatcher_id: getOptionalString(formData, "assigned_dispatcher_id"),
+      start_date: getOptionalString(formData, "start_date"),
+      notes: getOptionalString(formData, "notes")
+    })
+    .eq("id", driverId);
+
+  if (error) {
+    encodedRedirect(`/drivers/${driverId}`, "error", "Driver could not be updated.");
+  }
+
+  revalidatePath("/drivers");
+  revalidatePath(`/drivers/${driverId}`);
+  encodedRedirect(`/drivers/${driverId}`, "message", "Driver updated.");
+}
+
 export async function deactivateDriver(formData: FormData) {
   const supabase = await createClient();
   const driverId = getString(formData, "driver_id");
@@ -79,5 +121,6 @@ export async function deactivateDriver(formData: FormData) {
   }
 
   revalidatePath("/drivers");
+  revalidatePath(`/drivers/${driverId}`);
   encodedRedirect("/drivers", "message", "Driver deactivated.");
 }

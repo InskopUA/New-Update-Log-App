@@ -417,6 +417,48 @@ as $$
     d.full_name asc;
 $$;
 
+create or replace function public.get_driver_by_id(target_driver_id uuid)
+returns table (
+  id uuid,
+  company_id uuid,
+  full_name text,
+  phone text,
+  email text,
+  status text,
+  driver_type text,
+  assigned_dispatcher_id uuid,
+  assigned_dispatcher_name text,
+  start_date date,
+  notes text,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    d.id,
+    d.company_id,
+    d.full_name,
+    d.phone,
+    d.email,
+    d.status,
+    d.driver_type,
+    d.assigned_dispatcher_id,
+    p.full_name as assigned_dispatcher_name,
+    d.start_date,
+    d.notes,
+    d.created_at,
+    d.updated_at
+  from public.drivers d
+  left join public.profiles p on p.id = d.assigned_dispatcher_id
+  where d.id = target_driver_id
+    and public.is_company_member(d.company_id)
+  limit 1;
+$$;
+
 create or replace function public.deactivate_driver(target_driver_id uuid)
 returns uuid
 language plpgsql
@@ -493,6 +535,50 @@ as $$
   order by
     case t.status when 'active' then 1 when 'maintenance' then 2 else 3 end,
     t.unit_number asc;
+$$;
+
+create or replace function public.get_truck_by_id(target_truck_id uuid)
+returns table (
+  id uuid,
+  company_id uuid,
+  unit_number text,
+  vin text,
+  make text,
+  model text,
+  year integer,
+  plate_number text,
+  status text,
+  current_driver_id uuid,
+  current_driver_name text,
+  notes text,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    t.id,
+    t.company_id,
+    t.unit_number,
+    t.vin,
+    t.make,
+    t.model,
+    t.year,
+    t.plate_number,
+    t.status,
+    t.current_driver_id,
+    d.full_name as current_driver_name,
+    t.notes,
+    t.created_at,
+    t.updated_at
+  from public.trucks t
+  left join public.drivers d on d.id = t.current_driver_id
+  where t.id = target_truck_id
+    and public.is_company_member(t.company_id)
+  limit 1;
 $$;
 
 create or replace function public.deactivate_truck(target_truck_id uuid)
@@ -652,8 +738,10 @@ grant execute on function public.get_invite_by_token(text) to anon, authenticate
 grant execute on function public.accept_company_invite(text) to authenticated;
 grant execute on function public.get_company_members(uuid) to authenticated;
 grant execute on function public.get_drivers(uuid) to authenticated;
+grant execute on function public.get_driver_by_id(uuid) to authenticated;
 grant execute on function public.deactivate_driver(uuid) to authenticated;
 grant execute on function public.get_trucks(uuid) to authenticated;
+grant execute on function public.get_truck_by_id(uuid) to authenticated;
 grant execute on function public.deactivate_truck(uuid) to authenticated;
 grant execute on function public.is_company_member(uuid, uuid) to authenticated;
 grant execute on function public.has_company_role(uuid, public.app_role[]) to authenticated;
