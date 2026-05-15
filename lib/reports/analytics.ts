@@ -1,4 +1,4 @@
-import { categoryLabel, issueTypeLabel } from "@/lib/reports/taxonomy";
+import { categoryLabel, isNoProblemIssue, issueTypeLabel } from "@/lib/reports/taxonomy";
 
 export type OperationalReport = {
   category: string;
@@ -35,21 +35,29 @@ export function getReportAnalytics(reports: OperationalReport[]) {
   const byTruck: CountMap = {};
   let totalDowntime = 0;
   let highSeverity = 0;
+  let noProblemReports = 0;
+  let problemReports = 0;
 
   for (const report of reports) {
+    const noProblem = isNoProblemIssue(report.issue_type);
     increment(byCategory, categoryLabel(report.category));
     increment(bySeverity, report.severity);
-    increment(byIssue, issueTypeLabel(report.category, report.issue_type));
+    if (noProblem) {
+      noProblemReports += 1;
+    } else {
+      problemReports += 1;
+      increment(byIssue, issueTypeLabel(report.category, report.issue_type));
+    }
 
-    if (report.driver_name) {
+    if (!noProblem && report.driver_name) {
       increment(byDriver, report.driver_name);
     }
 
-    if (report.truck_unit_number) {
+    if (!noProblem && report.truck_unit_number) {
       increment(byTruck, `Truck ${report.truck_unit_number}`);
     }
 
-    if (["high", "critical"].includes(report.severity)) {
+    if (!noProblem && ["high", "critical"].includes(report.severity)) {
       highSeverity += 1;
     }
 
@@ -63,6 +71,8 @@ export function getReportAnalytics(reports: OperationalReport[]) {
     bySeverity: sortedEntries(bySeverity),
     byTruck: sortedEntries(byTruck),
     highSeverity,
+    noProblemReports,
+    problemReports,
     totalDowntime,
     totalReports: reports.length
   };

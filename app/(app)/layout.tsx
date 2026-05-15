@@ -25,20 +25,37 @@ export default async function ProtectedAppLayout({
     })
   ]);
 
+  const truckRows =
+    (trucks as Array<{
+      current_driver_id: string | null;
+      id: string;
+      status: string;
+      unit_number: string;
+    }> | null) ?? [];
+  const truckByDriverId = new Map(
+    truckRows
+      .filter((truck) => truck.current_driver_id && truck.status !== "inactive")
+      .map((truck) => [truck.current_driver_id as string, truck])
+  );
   const reportDrivers = (
     (drivers as Array<{ full_name: string; id: string; status: string }> | null) ?? []
   )
     .filter((driver) => driver.status === "active")
-    .map((driver) => ({
-      id: driver.id,
-      label: driver.full_name,
-      status: driver.status
-    }));
-  const reportTrucks = (
-    (trucks as Array<{ id: string; status: string; unit_number: string }> | null) ?? []
-  )
+    .map((driver) => {
+      const assignedTruck = truckByDriverId.get(driver.id);
+
+      return {
+        assignedTruckId: assignedTruck?.id ?? null,
+        assignedTruckLabel: assignedTruck?.unit_number ?? null,
+        id: driver.id,
+        label: driver.full_name,
+        status: driver.status
+      };
+    });
+  const reportTrucks = truckRows
     .filter((truck) => truck.status !== "inactive")
     .map((truck) => ({
+      currentDriverId: truck.current_driver_id,
       id: truck.id,
       label: truck.unit_number,
       status: truck.status

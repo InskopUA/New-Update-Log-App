@@ -14,6 +14,7 @@ export const reportSeverities = [
 
 export const reportIssueTypes = {
   truck_status: [
+    { label: "No truck problems", value: "no_problem" },
     { label: "Engine / drivetrain", value: "engine" },
     { label: "Transmission", value: "transmission" },
     { label: "Brakes", value: "brakes" },
@@ -26,6 +27,7 @@ export const reportIssueTypes = {
     { label: "Other truck issue", value: "other_truck_issue" }
   ],
   driver: [
+    { label: "No driver problems", value: "no_problem" },
     { label: "No answer", value: "no_answer" },
     { label: "Overslept", value: "overslept" },
     { label: "Sick / not feeling well", value: "sick" },
@@ -37,6 +39,7 @@ export const reportIssueTypes = {
     { label: "Other driver issue", value: "other_driver_issue" }
   ],
   load: [
+    { label: "No load problems", value: "no_problem" },
     { label: "Load cancelled", value: "cancelled" },
     { label: "No loads / bad area", value: "bad_area_no_loads" },
     { label: "Cheap load", value: "cheap_load" },
@@ -47,6 +50,7 @@ export const reportIssueTypes = {
     { label: "Other load issue", value: "other_load_issue" }
   ],
   other: [
+    { label: "No other problems", value: "no_problem" },
     { label: "Road inspection", value: "road_inspection" },
     { label: "Weather", value: "weather" },
     { label: "Road closure / traffic", value: "road_closure_traffic" },
@@ -58,6 +62,10 @@ export const reportIssueTypes = {
 } as const;
 
 export type ReportCategory = keyof typeof reportIssueTypes;
+
+export function isNoProblemIssue(value: string) {
+  return value === "no_problem";
+}
 
 export function categoryLabel(value: string) {
   return reportCategories.find((category) => category.value === value)?.label ?? value;

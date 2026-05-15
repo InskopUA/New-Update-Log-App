@@ -84,19 +84,19 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
       <div className="grid grid-3">
         <section className="panel stat stat-accent">
-          <div className="stat-label">Reports</div>
+          <div className="stat-label">Category checks</div>
           <div className="stat-value">{analytics.totalReports}</div>
           <div className="stat-note">{dateRange.label}</div>
         </section>
         <section className="panel stat stat-warning">
-          <div className="stat-label">High severity</div>
-          <div className="stat-value">{analytics.highSeverity}</div>
-          <div className="stat-note">High and critical reports</div>
+          <div className="stat-label">Problem reports</div>
+          <div className="stat-value">{analytics.problemReports}</div>
+          <div className="stat-note">{analytics.highSeverity} high or critical</div>
         </section>
         <section className="panel stat stat-success">
-          <div className="stat-label">Downtime</div>
-          <div className="stat-value">{analytics.totalDowntime.toFixed(1)}h</div>
-          <div className="stat-note">Reported downtime hours</div>
+          <div className="stat-label">No problem checks</div>
+          <div className="stat-value">{analytics.noProblemReports}</div>
+          <div className="stat-note">{analytics.totalDowntime.toFixed(1)}h downtime</div>
         </section>
       </div>
 

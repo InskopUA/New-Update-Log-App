@@ -80,19 +80,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <div className="grid grid-3">
         <section className="panel stat stat-accent">
-          <div className="stat-label">Reports</div>
+          <div className="stat-label">Category checks</div>
           <div className="stat-value">{analytics.totalReports}</div>
           <div className="stat-note">{dateRange.label}</div>
         </section>
         <section className="panel stat stat-warning">
-          <div className="stat-label">High severity</div>
-          <div className="stat-value">{analytics.highSeverity}</div>
-          <div className="stat-note">High and critical reports</div>
+          <div className="stat-label">Problem reports</div>
+          <div className="stat-value">{analytics.problemReports}</div>
+          <div className="stat-note">{analytics.highSeverity} high or critical</div>
         </section>
         <section className="panel stat stat-success">
-          <div className="stat-label">Downtime</div>
-          <div className="stat-value">{analytics.totalDowntime.toFixed(1)}h</div>
-          <div className="stat-note">Reported downtime hours</div>
+          <div className="stat-label">No problem checks</div>
+          <div className="stat-value">{analytics.noProblemReports}</div>
+          <div className="stat-note">Clean category reports</div>
         </section>
       </div>
 
@@ -108,15 +108,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div className="stat-note">Current working units</div>
         </section>
         <section className="panel stat">
-          <div className="stat-label">Problem density</div>
-          <div className="stat-value">
-            {activeTrucks ? (analytics.totalReports / activeTrucks).toFixed(1) : "0.0"}
-          </div>
-          <div className="stat-note">Reports per active truck</div>
+          <div className="stat-label">Downtime</div>
+          <div className="stat-value">{analytics.totalDowntime.toFixed(1)}h</div>
+          <div className="stat-note">Reported downtime hours</div>
         </section>
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 16 }}>
+        <section className="panel stat">
+          <div className="stat-label">Problem density</div>
+          <div className="stat-value">
+            {activeTrucks ? (analytics.problemReports / activeTrucks).toFixed(1) : "0.0"}
+          </div>
+          <div className="stat-note">Problems per active truck</div>
+        </section>
         <Panel title="Repeated problems">
           {analytics.byIssue.length ? (
             analytics.byIssue.slice(0, 6).map(([label, value]) => (

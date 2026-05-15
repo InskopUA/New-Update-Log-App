@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { reportIssueTypes, type ReportCategory } from "@/lib/reports/taxonomy";
+import {
+  isNoProblemIssue,
+  reportCategories,
+  reportIssueTypes,
+  type ReportCategory
+} from "@/lib/reports/taxonomy";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -23,8 +28,8 @@ function getAllowedValue(value: string, allowedValues: string[], fallback: strin
   return allowedValues.includes(value) ? value : fallback;
 }
 
-function getDowntimeHours(formData: FormData) {
-  const value = getString(formData, "downtime_hours");
+function getDowntimeHours(formData: FormData, key: string) {
+  const value = getString(formData, key);
   const parsed = Number(value || 0);
 
   if (!Number.isFinite(parsed) || parsed < 0) {
@@ -37,41 +42,63 @@ function getDowntimeHours(formData: FormData) {
 export async function createReport(formData: FormData) {
   const supabase = await createClient();
   const companyId = getString(formData, "company_id");
-  const category = getAllowedValue(
-    getString(formData, "category"),
-    Object.keys(reportIssueTypes),
-    "truck_status"
-  ) as ReportCategory;
-  const allowedIssueTypes = reportIssueTypes[category].map((issueType) => issueType.value);
-  const issueType = getAllowedValue(getString(formData, "issue_type"), allowedIssueTypes, allowedIssueTypes[0]);
-  const severity = getAllowedValue(
-    getString(formData, "severity"),
-    ["low", "medium", "high", "critical"],
-    "medium"
-  );
-  const explanation = getString(formData, "explanation");
+  const reportDate = getString(formData, "report_date") || new Date().toISOString().slice(0, 10);
+  const driverId = getOptionalString(formData, "driver_id");
+  const truckId = getOptionalString(formData, "truck_id");
+  const loadReference = getOptionalString(formData, "load_reference");
 
-  if (!companyId || explanation.length < 10) {
-    encodedRedirect("/reports", "error", "Report explanation must be at least 10 characters.");
+  if (!companyId || !driverId || !truckId) {
+    encodedRedirect("/reports", "error", "Select a driver and truck before saving the report.");
   }
 
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase.from("operational_reports").insert({
-    company_id: companyId,
-    report_date: getString(formData, "report_date") || new Date().toISOString().slice(0, 10),
-    category,
-    issue_type: issueType,
-    severity,
-    driver_id: getOptionalString(formData, "driver_id"),
-    truck_id: getOptionalString(formData, "truck_id"),
-    load_reference: getOptionalString(formData, "load_reference"),
-    downtime_hours: getDowntimeHours(formData),
-    explanation,
-    created_by: user?.id
+  const rows = reportCategories.map((reportCategory) => {
+    const category = reportCategory.value as ReportCategory;
+    const allowedIssueTypes = reportIssueTypes[category].map((issueType) => issueType.value);
+    const issueType = getAllowedValue(
+      getString(formData, `${category}_issue_type`),
+      allowedIssueTypes,
+      allowedIssueTypes[0]
+    );
+    const noProblem = isNoProblemIssue(issueType);
+    const severity = noProblem
+      ? "low"
+      : getAllowedValue(
+          getString(formData, `${category}_severity`),
+          ["low", "medium", "high", "critical"],
+          "medium"
+        );
+    const explanation = noProblem
+      ? "No problems reported."
+      : getString(formData, `${category}_explanation`);
+
+    if (!noProblem && explanation.length < 10) {
+      encodedRedirect(
+        "/reports",
+        "error",
+        "Each problem section needs an explanation of at least 10 characters."
+      );
+    }
+
+    return {
+      company_id: companyId,
+      report_date: reportDate,
+      category,
+      issue_type: issueType,
+      severity,
+      driver_id: driverId,
+      truck_id: truckId,
+      load_reference: loadReference,
+      downtime_hours: noProblem ? 0 : getDowntimeHours(formData, `${category}_downtime_hours`),
+      explanation,
+      created_by: user?.id
+    };
   });
+
+  const { error } = await supabase.from("operational_reports").insert(rows);
 
   if (error) {
     encodedRedirect("/reports", "error", "Report could not be created.");

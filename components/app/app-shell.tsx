@@ -11,11 +11,14 @@ type AppShellProps = {
   email: string;
   activeMembership: Membership;
   reportDrivers: Array<{
+    assignedTruckId: string | null;
+    assignedTruckLabel: string | null;
     id: string;
     label: string;
     status: string;
   }>;
   reportTrucks: Array<{
+    currentDriverId: string | null;
     id: string;
     label: string;
     status: string;
