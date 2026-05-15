@@ -44,16 +44,26 @@ export async function createReport(formData: FormData) {
   const companyId = getString(formData, "company_id");
   const reportDate = getString(formData, "report_date") || new Date().toISOString().slice(0, 10);
   const driverId = getOptionalString(formData, "driver_id");
-  const truckId = getOptionalString(formData, "truck_id");
   const loadReference = getOptionalString(formData, "load_reference");
 
-  if (!companyId || !driverId || !truckId) {
-    encodedRedirect("/reports", "error", "Select a driver and truck before saving the report.");
+  if (!companyId || !driverId) {
+    encodedRedirect("/reports", "error", "Select a driver before saving the report.");
   }
 
   const {
     data: { user }
   } = await supabase.auth.getUser();
+
+  const { data: assignedTruck } = await supabase
+    .from("trucks")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("current_driver_id", driverId)
+    .neq("status", "inactive")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const truckId = assignedTruck?.id ?? null;
 
   const rows = reportCategories.map((reportCategory) => {
     const category = reportCategory.value as ReportCategory;

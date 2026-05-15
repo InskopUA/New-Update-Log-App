@@ -45,28 +45,18 @@ export default async function ProtectedAppLayout({
       const assignedTruck = truckByDriverId.get(driver.id);
 
       return {
-        assignedTruckId: assignedTruck?.id ?? null,
         assignedTruckLabel: assignedTruck?.unit_number ?? null,
         id: driver.id,
         label: driver.full_name,
         status: driver.status
       };
     });
-  const reportTrucks = truckRows
-    .filter((truck) => truck.status !== "inactive")
-    .map((truck) => ({
-      currentDriverId: truck.current_driver_id,
-      id: truck.id,
-      label: truck.unit_number,
-      status: truck.status
-    }));
 
   return (
     <AppShell
       activeMembership={context.activeMembership}
       email={context.profile?.email ?? context.user.email ?? ""}
       reportDrivers={reportDrivers}
-      reportTrucks={reportTrucks}
     >
       {children}
     </AppShell>

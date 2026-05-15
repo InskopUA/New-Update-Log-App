@@ -15,15 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 type ReportDriverOption = {
-  assignedTruckId: string | null;
   assignedTruckLabel: string | null;
-  id: string;
-  label: string;
-  status: string;
-};
-
-type ReportTruckOption = {
-  currentDriverId: string | null;
   id: string;
   label: string;
   status: string;
@@ -32,7 +24,6 @@ type ReportTruckOption = {
 type AddReportModalProps = {
   companyId: string;
   drivers: ReportDriverOption[];
-  trucks: ReportTruckOption[];
 };
 
 type CategoryState = {
@@ -108,25 +99,19 @@ function getSectionError(section: CategoryState) {
   return "";
 }
 
-export function AddReportModal({ companyId, drivers, trucks }: AddReportModalProps) {
+export function AddReportModal({ companyId, drivers }: AddReportModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<ReportCategory>("truck_status");
   const [selectedDriverId, setSelectedDriverId] = useState("");
-  const [fallbackTruckId, setFallbackTruckId] = useState("");
   const [sections, setSections] = useState(createInitialSections);
   const activeSection = sections[activeCategory];
   const issueTypes = useMemo(() => reportIssueTypes[activeCategory], [activeCategory]);
   const selectedDriver = drivers.find((driver) => driver.id === selectedDriverId);
-  const assignedTruckId = selectedDriver?.assignedTruckId ?? "";
   const assignedTruckLabel = selectedDriver?.assignedTruckLabel ?? "";
-  const selectedTruckId = assignedTruckId || fallbackTruckId;
-  const availableFallbackTrucks = trucks.filter(
-    (truck) => !truck.currentDriverId || truck.currentDriverId === selectedDriverId
-  );
   const currentSectionError = getSectionError(activeSection);
   const allSectionsCompleted = categoryOrder.every((category) => sections[category].completed);
-  const canSaveReport = Boolean(selectedDriverId && selectedTruckId && allSectionsCompleted);
+  const canSaveReport = Boolean(selectedDriverId && allSectionsCompleted);
 
   useEffect(() => {
     setMounted(true);
@@ -135,7 +120,6 @@ export function AddReportModal({ companyId, drivers, trucks }: AddReportModalPro
   function resetModal() {
     setActiveCategory("truck_status");
     setSelectedDriverId("");
-    setFallbackTruckId("");
     setSections(createInitialSections());
   }
 
@@ -206,7 +190,6 @@ export function AddReportModal({ companyId, drivers, trucks }: AddReportModalPro
 
   function handleDriverChange(driverId: string) {
     setSelectedDriverId(driverId);
-    setFallbackTruckId("");
   }
 
   const modal = (
@@ -228,7 +211,6 @@ export function AddReportModal({ companyId, drivers, trucks }: AddReportModalPro
         <form action={createReport} className="form report-form">
           <input name="company_id" type="hidden" value={companyId} />
           <input name="driver_id" type="hidden" value={selectedDriverId} />
-          <input name="truck_id" type="hidden" value={selectedTruckId} />
           {categoryOrder.map((category) => (
             <div key={category}>
               <input
@@ -275,29 +257,12 @@ export function AddReportModal({ companyId, drivers, trucks }: AddReportModalPro
                 ))}
               </select>
             </label>
-            {assignedTruckId ? (
-              <div className="field">
-                <span className="label">Truck</span>
-                <div className="locked-field">Truck {assignedTruckLabel}</div>
+            <div className="field">
+              <span className="label">Truck</span>
+              <div className="locked-field">
+                {assignedTruckLabel ? `Auto: Truck ${assignedTruckLabel}` : "Auto from driver"}
               </div>
-            ) : (
-              <label className="field">
-                <span className="label">Truck *</span>
-                <select
-                  className="select"
-                  onChange={(event) => setFallbackTruckId(event.target.value)}
-                  required
-                  value={fallbackTruckId}
-                >
-                  <option value="">Select truck</option>
-                  {availableFallbackTrucks.map((truck) => (
-                    <option key={truck.id} value={truck.id}>
-                      {truck.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            </div>
           </div>
 
           <label className="field">
@@ -445,9 +410,9 @@ export function AddReportModal({ companyId, drivers, trucks }: AddReportModalPro
             </Button>
             <span className="save-note">
               {allSectionsCompleted
-                ? selectedDriverId && selectedTruckId
+                ? selectedDriverId
                   ? "Ready to save"
-                  : "Select driver and truck"
+                  : "Select driver"
                 : "Complete all four categories"}
             </span>
             <Button type="button" variant="secondary" onClick={closeModal}>

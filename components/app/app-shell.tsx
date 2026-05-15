@@ -11,14 +11,7 @@ type AppShellProps = {
   email: string;
   activeMembership: Membership;
   reportDrivers: Array<{
-    assignedTruckId: string | null;
     assignedTruckLabel: string | null;
-    id: string;
-    label: string;
-    status: string;
-  }>;
-  reportTrucks: Array<{
-    currentDriverId: string | null;
     id: string;
     label: string;
     status: string;
@@ -62,8 +55,7 @@ export function AppShell({
   children,
   email,
   activeMembership,
-  reportDrivers,
-  reportTrucks
+  reportDrivers
 }: AppShellProps) {
   const canCreateReports = ["owner", "admin", "dispatcher"].includes(activeMembership.role);
 
@@ -113,7 +105,6 @@ export function AppShell({
             <AddReportModal
               companyId={activeMembership.company.id}
               drivers={reportDrivers}
-              trucks={reportTrucks}
             />
           ) : null}
         </div>
