@@ -1,4 +1,4 @@
-import { BarChart3, Settings, Truck, UsersRound } from "lucide-react";
+import { BarChart3, IdCard, Settings, Truck, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/lib/auth/actions";
 import { roleLabel } from "@/lib/permissions";
@@ -16,6 +16,11 @@ const navItems = [
     href: "/dashboard",
     label: "Dashboard",
     icon: BarChart3
+  },
+  {
+    href: "/drivers",
+    label: "Drivers",
+    icon: IdCard
   },
   {
     href: "/settings/team",

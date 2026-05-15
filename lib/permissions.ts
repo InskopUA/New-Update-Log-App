@@ -10,6 +10,7 @@ const roleLabels: Record<AppRole, string> = {
 };
 
 const managementRoles: AppRole[] = ["owner", "admin"];
+const driverCreateRoles: AppRole[] = ["owner", "admin", "dispatcher"];
 
 export function roleLabel(role: string) {
   return roleLabels[role as AppRole] ?? role;
@@ -17,4 +18,8 @@ export function roleLabel(role: string) {
 
 export function canManageTeam(role?: string | null) {
   return managementRoles.includes(role as AppRole);
+}
+
+export function canCreateDrivers(role?: string | null) {
+  return driverCreateRoles.includes(role as AppRole);
 }
