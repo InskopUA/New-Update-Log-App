@@ -1,8 +1,10 @@
 import Link from "next/link";
 import {
   Activity,
+  AlertTriangle,
   CircleDollarSign,
   Gauge,
+  ShieldCheck,
   TimerReset
 } from "lucide-react";
 import { getAppContext } from "@/lib/auth/session";
@@ -276,6 +278,34 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </section>
       </div>
 
+      <div className="attention-grid">
+        {analytics.alerts.length ? (
+          analytics.alerts.map((alert) => (
+            <Link className={`attention-card attention-${alert.severity}`} href={alert.href} key={`${alert.label}-${alert.title}`}>
+              <span className="attention-icon">
+                <span className="alert-icon"><AlertTriangle size={16} /></span>
+              </span>
+              <span>
+                <small>{alert.label}</small>
+                <strong>{alert.title}</strong>
+                <em>{alert.impact}</em>
+              </span>
+            </Link>
+          ))
+        ) : (
+          <div className="attention-card attention-calm">
+            <span className="attention-icon">
+              <span className="alert-icon"><ShieldCheck size={16} /></span>
+            </span>
+            <span>
+              <small>Clear</small>
+              <strong>No priority alerts</strong>
+              <em>Keep reports consistent to protect the trend.</em>
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="dashboard-grid-main">
         <section className="panel chart-panel">
           <div className="panel-header">
@@ -289,7 +319,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 className="line-trend-chart"
                 preserveAspectRatio="none"
                 role="img"
-                viewBox="0 0 1000 320"
+                viewBox="0 0 1000 280"
               >
                 <defs>
                   <filter id="trendGlow" x="-20%" y="-40%" width="140%" height="180%">
@@ -339,20 +369,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     );
                   })
                 )}
+              </svg>
+            ) : (
+              <div className="empty">No trend data yet.</div>
+            )}
+            {recentTrend.length ? (
+              <div className="chart-date-row">
                 {chartDates.map((point) => {
                   const index = recentTrend.findIndex((trendPoint) => trendPoint.date === point.date);
                   const { x } = getChartPoint(recentTrend, "clean", maxTrend, index);
 
                   return (
-                    <text className="chart-date-label" key={point.date} textAnchor="middle" x={x} y="300">
+                    <span key={point.date} style={{ left: `${x / 10}%` }}>
                       {formatTrendDate(point.date)}
-                    </text>
+                    </span>
                   );
                 })}
-              </svg>
-            ) : (
-              <div className="empty">No trend data yet.</div>
-            )}
+              </div>
+            ) : null}
           </div>
           <div className="chart-legend">
             {trendSeries.map((series) => (

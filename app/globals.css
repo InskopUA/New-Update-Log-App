@@ -892,13 +892,13 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
 .line-trend-wrap {
   background:
     linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(255, 255, 255, 0) 58%);
-  min-height: 286px;
-  padding: 16px 20px 4px;
+  min-height: 282px;
+  padding: 16px 20px 8px;
 }
 
 .line-trend-chart {
   display: block;
-  height: 260px;
+  height: 240px;
   overflow: visible;
   width: 100%;
 }
@@ -909,10 +909,20 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   stroke-width: 1.5;
 }
 
-.chart-date-label {
-  fill: #64748b;
-  font-size: 13px;
-  font-weight: 700;
+.chart-date-row {
+  height: 24px;
+  margin-top: 2px;
+  position: relative;
+}
+
+.chart-date-row span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 750;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .trend-chart {
