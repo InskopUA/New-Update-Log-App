@@ -5,8 +5,7 @@ import {
   CircleDollarSign,
   Gauge,
   ShieldCheck,
-  TimerReset,
-  Zap
+  TimerReset
 } from "lucide-react";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -188,9 +187,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       id: driver.id,
       label: driver.full_name
     }));
-  const activeDrivers = driverRows.filter(
-    (driver) => driver.status === "active"
-  ).length;
   const truckRows = (trucks as Array<{ id: string; status: string; unit_number: string }> | null) ?? [];
   const truckOptions = truckRows
     .filter((truck) => truck.status !== "inactive")
@@ -198,9 +194,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       id: truck.id,
       label: `Truck ${truck.unit_number}`
     }));
-  const activeTrucks = truckRows.filter(
-    (truck) => truck.status === "active"
-  ).length;
   const recentTrend = analytics.byDay.slice(-14);
   const maxTrend = Math.max(
     1,
@@ -212,8 +205,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ])
   );
   const topIssue = analytics.byIssue[0];
-  const topDriver = analytics.driverScores[0];
-  const topTruck = analytics.truckScores[0];
   const severityTotal = analytics.bySeverity.reduce((total, [, value]) => total + value, 0);
   const chartDates = recentTrend.filter((_, index) => {
     if (recentTrend.length <= 7) {
@@ -395,67 +386,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </span>
             ))}
           </div>
-        </section>
-
-        <section className="panel chart-panel">
-          <div className="panel-header">
-            <h2 className="panel-title">Report breakdown</h2>
-            <span className="stat-note">Where issues are coming from</span>
-          </div>
-          <div className="breakdown-list">
-            {analytics.byCategory.length ? (
-              analytics.byCategory.map(([label, value]) => (
-                <div className="breakdown-row" key={label}>
-                  <div>
-                    <strong>{label}</strong>
-                    <span>{value} checks · {percent(value, analytics.totalReports)}%</span>
-                  </div>
-                  <div className="breakdown-track">
-                    <span style={{ width: `${Math.max(8, percent(value, analytics.totalReports))}%` }} />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="empty">No reports yet.</div>
-            )}
-            <div className="breakdown-summary">
-              <span>
-                <strong>{activeDrivers}</strong>
-                active drivers
-              </span>
-              <span>
-                <strong>{activeTrucks}</strong>
-                active trucks
-              </span>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div className="ops-insight-grid">
-        <section className="insight-panel">
-          <div>
-            <span className="insight-kicker">Top pressure</span>
-            <strong>{topIssue?.[0] ?? "No repeated issue"}</strong>
-            <p>{topIssue ? `${topIssue[1]} reports need pattern review.` : "Clean signal so far."}</p>
-          </div>
-          <Zap size={26} />
-        </section>
-        <section className="insight-panel">
-          <div>
-            <span className="insight-kicker">Driver risk</span>
-            <strong>{topDriver?.label ?? "No driver risk"}</strong>
-            <p>{topDriver ? `${topDriver.problems} problems, ${topDriver.clean} clean checks.` : "No driver reports yet."}</p>
-          </div>
-          <Activity size={26} />
-        </section>
-        <section className="insight-panel">
-          <div>
-            <span className="insight-kicker">Truck risk</span>
-            <strong>{topTruck?.label ?? "No truck risk"}</strong>
-            <p>{topTruck ? `${topTruck.downtime.toFixed(1)}h downtime, score ${topTruck.score}.` : "No truck reports yet."}</p>
-          </div>
-          <TimerReset size={26} />
         </section>
       </div>
 
