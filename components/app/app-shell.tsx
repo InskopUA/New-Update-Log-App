@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardCheck, ClipboardList, IdCard, Settings, Truck, UsersRound } from "lucide-react";
+import { BarChart3, ClipboardCheck, ClipboardList, IdCard, Settings, Truck, UsersRound, Wrench } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/lib/auth/actions";
 import { roleLabel } from "@/lib/permissions";
@@ -44,6 +44,11 @@ const navItems = [
     href: "/actions",
     label: "Actions",
     icon: ClipboardCheck
+  },
+  {
+    href: "/maintenance",
+    label: "Maintenance",
+    icon: Wrench
   },
   {
     href: "/settings/team",

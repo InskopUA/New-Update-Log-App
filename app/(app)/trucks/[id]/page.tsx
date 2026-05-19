@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { createMaintenanceLog, updateMaintenanceLogStatus } from "@/lib/maintenance/actions";
 import { deactivateTruck, updateTruck } from "@/lib/trucks/actions";
 import { getAppContext } from "@/lib/auth/session";
 import { getReportAnalytics, type OperationalReport } from "@/lib/reports/analytics";
 import { categoryLabel, issueTypeLabel } from "@/lib/reports/taxonomy";
 import { createClient } from "@/lib/supabase/server";
-import { canManageTeam } from "@/lib/permissions";
+import { canCreateDrivers, canManageTeam } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/page-header";
@@ -43,6 +44,33 @@ type Driver = {
   status: string;
 };
 
+type RepairLog = {
+  actual_cost: number | string | null;
+  completed_at: string | null;
+  downtime_hours: number | string;
+  estimated_cost: number | string | null;
+  id: string;
+  issue_type: string;
+  next_follow_up_date: string | null;
+  notes: string;
+  opened_at: string;
+  priority: string;
+  status: string;
+  truck_id: string;
+  vendor: string | null;
+};
+
+const repairIssueLabels: Record<string, string> = {
+  body: "Body",
+  brakes: "Brakes",
+  engine: "Engine",
+  inspection: "Inspection",
+  lights: "Lights",
+  oil_service: "Oil service",
+  other: "Other",
+  tires: "Tires"
+};
+
 function getStringValue(value: string | number | null) {
   return value === null ? "" : String(value);
 }
@@ -56,8 +84,9 @@ export default async function TruckDetailPage({
   const context = await getAppContext();
   const supabase = await createClient();
   const canEdit = canManageTeam(context.activeMembership?.role);
+  const canAddRepair = canCreateDrivers(context.activeMembership?.role);
 
-  const [{ data: truckData }, { data: drivers }, { data: reports }] = await Promise.all([
+  const [{ data: truckData }, { data: drivers }, { data: reports }, { data: repairs }] = await Promise.all([
     supabase.rpc("get_truck_by_id", {
       target_truck_id: id
     }),
@@ -68,7 +97,13 @@ export default async function TruckDetailPage({
       end_date: null,
       start_date: null,
       target_company_id: context.activeMembership?.company.id
-    })
+    }),
+    supabase
+      .from("maintenance_logs")
+      .select("*")
+      .eq("truck_id", id)
+      .order("opened_at", { ascending: false })
+      .order("created_at", { ascending: false })
   ]);
 
   const truck = (Array.isArray(truckData) ? truckData[0] : null) as Truck | null;
@@ -86,6 +121,8 @@ export default async function TruckDetailPage({
   const analytics = getReportAnalytics(reportRows);
   const truckScore = analytics.truckScores.find((score) => score.id === truck.id);
   const topIssue = truckScore?.topIssue?.[0] ?? analytics.byIssue[0]?.[0] ?? "No pressure yet";
+  const repairRows = (repairs as RepairLog[] | null) ?? [];
+  const openRepairs = repairRows.filter((repair) => !["completed", "cancelled"].includes(repair.status));
 
   return (
     <>
@@ -167,6 +204,86 @@ export default async function TruckDetailPage({
             </div>
           ) : (
             <div className="empty">No reports for this truck yet.</div>
+          )}
+        </Panel>
+      </div>
+
+      <div className="grid grid-2 detail-overview-grid">
+        <Panel title="Repair log">
+          {repairRows.length ? (
+            <div className="action-page-list">
+              {repairRows.slice(0, 6).map((repair) => (
+                <section className={`action-page-item action-page-${repair.priority}`} key={repair.id}>
+                  <div className="action-page-main">
+                    <span className={`badge badge-${repair.priority}`}>{repair.priority}</span>
+                    <strong>{repairIssueLabels[repair.issue_type] ?? repair.issue_type}</strong>
+                    <p>{repair.notes}</p>
+                    <small>
+                      {repair.status.replaceAll("_", " ")} · {repair.vendor || "No vendor"} · {Number(repair.downtime_hours).toFixed(1)}h downtime
+                    </small>
+                  </div>
+                  {!["completed", "cancelled"].includes(repair.status) ? (
+                    <div className="action-page-controls">
+                      <form action={updateMaintenanceLogStatus}>
+                        <input name="repair_id" type="hidden" value={repair.id} />
+                        <input name="truck_id" type="hidden" value={truck.id} />
+                        <input name="return_to" type="hidden" value={`/trucks/${truck.id}`} />
+                        <input name="status" type="hidden" value="completed" />
+                        <button className="button button-primary" type="submit">Complete</button>
+                      </form>
+                    </div>
+                  ) : null}
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="empty">No repair logs for this truck yet.</div>
+          )}
+        </Panel>
+
+        <Panel title="Add repair">
+          {canAddRepair ? (
+          <form action={createMaintenanceLog} className="form" style={{ marginTop: 0 }}>
+            <input name="company_id" type="hidden" value={truck.company_id} />
+            <input name="truck_id" type="hidden" value={truck.id} />
+            <input name="return_to" type="hidden" value={`/trucks/${truck.id}`} />
+            <div className="grid grid-2">
+              <label className="field">
+                <span className="label">Issue type</span>
+                <select className="select" defaultValue="other" name="issue_type">
+                  {Object.entries(repairIssueLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Priority</span>
+                <select className="select" defaultValue={openRepairs.length ? "high" : "medium"} name="priority">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </label>
+            </div>
+            <div className="grid grid-2">
+              <label className="field">
+                <span className="label">Vendor / shop</span>
+                <input className="input" name="vendor" type="text" />
+              </label>
+              <label className="field">
+                <span className="label">Estimated cost</span>
+                <input className="input" min="0" name="estimated_cost" step="0.01" type="number" />
+              </label>
+            </div>
+            <label className="field">
+              <span className="label">Notes</span>
+              <textarea className="textarea" name="notes" required />
+            </label>
+            <Button type="submit">Add repair</Button>
+          </form>
+          ) : (
+            <div className="empty">You do not have permission to add repairs.</div>
           )}
         </Panel>
       </div>

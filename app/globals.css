@@ -1477,6 +1477,75 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   color: #10b981;
 }
 
+.driver-signal-summary {
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(255, 255, 255, 0.92));
+  border: 1px solid #d8e5f5;
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 14px;
+}
+
+.driver-signal-summary strong {
+  font-size: 13px;
+}
+
+.driver-signal-summary p {
+  color: #334155;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.driver-signal-item {
+  background: #f8fafc;
+  border: 1px solid #d8e5f5;
+  border-left: 4px solid #0891b2;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px;
+}
+
+.signal-positive {
+  border-left-color: #10b981;
+}
+
+.signal-neutral {
+  border-left-color: #0891b2;
+}
+
+.signal-concern {
+  border-left-color: #f97316;
+}
+
+.signal-urgent {
+  border-left-color: #f43f5e;
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+}
+
+.checkbox-row input {
+  height: 16px;
+  width: 16px;
+}
+
+.checkbox-row span {
+  color: #334155;
+  font-weight: 750;
+}
+
+.signal-checkbox {
+  align-self: end;
+  min-height: 38px;
+}
+
 .ops-insight-grid {
   display: grid;
   gap: 16px;
@@ -2317,6 +2386,10 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   }
 
   .action-page-item {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-signal-item {
     grid-template-columns: 1fr;
   }
 
