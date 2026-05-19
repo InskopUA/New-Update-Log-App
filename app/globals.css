@@ -650,6 +650,106 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   color: #0891b2;
 }
 
+.ops-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1.2fr 0.9fr 1.1fr;
+  margin-top: 16px;
+}
+
+.ops-summary-grid .panel-header svg {
+  color: #0891b2;
+}
+
+.action-queue,
+.ai-summary-list,
+.summary-chip-list {
+  display: grid;
+  gap: 10px;
+}
+
+.action-item {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #d8e5f5;
+  border-left: 4px solid #0891b2;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 13px;
+}
+
+.action-item:hover {
+  background: #ffffff;
+  border-color: #93c5fd;
+}
+
+.action-item span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.action-item small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.action-item strong {
+  font-size: 14px;
+}
+
+.action-item em {
+  color: #64748b;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.action-critical {
+  border-left-color: #f43f5e;
+}
+
+.action-high {
+  border-left-color: #f97316;
+}
+
+.action-medium {
+  border-left-color: #0891b2;
+}
+
+.summary-chip-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.summary-chip-list span {
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.11), rgba(255, 255, 255, 0.9));
+  border: 1px solid #d8e5f5;
+  border-radius: 8px;
+  color: #334155;
+  font-weight: 750;
+  min-height: 50px;
+  padding: 12px;
+}
+
+.ai-summary-list p {
+  border-bottom: 1px solid var(--border);
+  color: #334155;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0 0 10px;
+}
+
+.ai-summary-list p:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
 .command-hero {
   align-items: stretch;
   background:
@@ -889,6 +989,34 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   overflow: hidden;
 }
 
+.chart-header-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.chart-mode-tabs {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.chart-mode-tabs a {
+  border-radius: 999px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.chart-mode-tabs a.active {
+  background: #111827;
+  color: #ffffff;
+}
+
 .line-trend-wrap {
   background:
     linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(255, 255, 255, 0) 58%);
@@ -1050,6 +1178,86 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   min-width: 36px;
   padding: 6px 9px;
   text-align: center;
+}
+
+.detail-command-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.detail-signal-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #d8e5f5;
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.05);
+  display: grid;
+  gap: 8px;
+  min-height: 130px;
+  padding: 18px;
+}
+
+.detail-signal-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.detail-signal-card strong {
+  color: #0f172a;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.detail-signal-card em {
+  color: #64748b;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.detail-overview-grid {
+  margin-bottom: 16px;
+}
+
+.panel-link {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.compact-report-list {
+  display: grid;
+}
+
+.compact-report-row {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 11px 0;
+}
+
+.compact-report-row:first-child {
+  padding-top: 0;
+}
+
+.compact-report-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.compact-report-row > span:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.compact-report-row small {
+  color: #64748b;
 }
 
 .ops-insight-grid {
@@ -1876,10 +2084,21 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   .command-hero,
   .dashboard-grid-main,
   .ops-insight-grid,
+  .ops-summary-grid,
   .attention-grid,
+  .detail-command-grid,
   .report-explorer-strip,
   .report-command-strip,
   .report-search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-header-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .summary-chip-list {
     grid-template-columns: 1fr;
   }
 

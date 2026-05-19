@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deactivateDriver, updateDriver } from "@/lib/drivers/actions";
 import { getAppContext } from "@/lib/auth/session";
+import { getReportAnalytics, type OperationalReport } from "@/lib/reports/analytics";
+import { categoryLabel, issueTypeLabel } from "@/lib/reports/taxonomy";
 import { createClient } from "@/lib/supabase/server";
 import { canManageTeam, roleLabel } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
@@ -55,11 +57,16 @@ export default async function DriverDetailPage({
   const supabase = await createClient();
   const canEdit = canManageTeam(context.activeMembership?.role);
 
-  const [{ data: driverData }, { data: members }] = await Promise.all([
+  const [{ data: driverData }, { data: members }, { data: reports }] = await Promise.all([
     supabase.rpc("get_driver_by_id", {
       target_driver_id: id
     }),
     supabase.rpc("get_company_members", {
+      target_company_id: context.activeMembership?.company.id
+    }),
+    supabase.rpc("get_operational_reports", {
+      end_date: null,
+      start_date: null,
       target_company_id: context.activeMembership?.company.id
     })
   ]);
@@ -76,6 +83,12 @@ export default async function DriverDetailPage({
       ["admin", "dispatcher"].includes(member.role) &&
       (member.user_id === driver.assigned_dispatcher_id || member.status === "active")
   );
+  const reportRows = ((reports as OperationalReport[] | null) ?? [])
+    .filter((report) => report.driver_id === driver.id)
+    .sort((a, b) => b.report_date.localeCompare(a.report_date));
+  const analytics = getReportAnalytics(reportRows);
+  const driverScore = analytics.driverScores.find((score) => score.id === driver.id);
+  const topIssue = driverScore?.topIssue?.[0] ?? analytics.byIssue[0]?.[0] ?? "No pressure yet";
 
   return (
     <>
@@ -91,6 +104,75 @@ export default async function DriverDetailPage({
 
       <Notice message={query.error} type="error" />
       <Notice message={query.message} />
+
+      <div className="detail-command-grid">
+        <section className="detail-signal-card">
+          <span>Risk score</span>
+          <strong>{driverScore?.score ?? 0}</strong>
+          <em>{topIssue}</em>
+        </section>
+        <section className="detail-signal-card">
+          <span>Problem checks</span>
+          <strong>{analytics.problemReports}</strong>
+          <em>{analytics.cleanRate}% clean checks</em>
+        </section>
+        <section className="detail-signal-card">
+          <span>High risk</span>
+          <strong>{driverScore?.high ?? 0}</strong>
+          <em>High / critical reports</em>
+        </section>
+        <section className="detail-signal-card">
+          <span>Downtime</span>
+          <strong>{analytics.totalDowntime.toFixed(1)}h</strong>
+          <em>All reports</em>
+        </section>
+      </div>
+
+      <div className="grid grid-2 detail-overview-grid">
+        <Panel title="Top driver issues">
+          {analytics.byIssue.length ? (
+            analytics.byIssue.slice(0, 5).map(([label, value]) => (
+              <div className="metric-row metric-row-modern" key={label}>
+                <span className="metric-label">{label}</span>
+                <span className="metric-bar">
+                  <span
+                    className="metric-bar-fill"
+                    style={{ width: `${Math.max(8, (value / Math.max(1, analytics.problemReports)) * 100)}%` }}
+                  />
+                </span>
+                <span>{value}</span>
+              </div>
+            ))
+          ) : (
+            <div className="empty">No driver issues yet.</div>
+          )}
+        </Panel>
+
+        <Panel
+          action={
+            <Link className="panel-link" href={`/reports?range=all&driver_ids=${driver.id}`}>
+              View reports
+            </Link>
+          }
+          title="Recent driver reports"
+        >
+          {reportRows.length ? (
+            <div className="compact-report-list">
+              {reportRows.slice(0, 5).map((report) => (
+                <Link className="compact-report-row" href={`/reports?range=all&driver_ids=${driver.id}`} key={report.id}>
+                  <span>
+                    <strong>{issueTypeLabel(report.category, report.issue_type)}</strong>
+                    <small>{categoryLabel(report.category)} · {report.report_date}</small>
+                  </span>
+                  <span className={`badge badge-${report.severity}`}>{report.severity}</span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="empty">No reports for this driver yet.</div>
+          )}
+        </Panel>
+      </div>
 
       <Panel title="Driver details">
         <form action={updateDriver} className="form" style={{ marginTop: 0 }}>

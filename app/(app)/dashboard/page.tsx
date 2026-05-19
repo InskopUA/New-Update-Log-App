@@ -2,9 +2,13 @@ import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
+  CalendarDays,
   CircleDollarSign,
+  ClipboardList,
   Gauge,
   ShieldCheck,
+  Sparkles,
   TimerReset
 } from "lucide-react";
 import { getAppContext } from "@/lib/auth/session";
@@ -23,6 +27,7 @@ import { Panel } from "@/components/ui/panel";
 
 type DashboardPageProps = {
   searchParams: Promise<{
+    chart_mode?: string;
     driver_ids?: string;
     end_date?: string;
     range?: string;
@@ -93,20 +98,73 @@ function buildReportsHref({
   return `/reports?${params.toString()}`;
 }
 
-type TrendMetric = "clean" | "low" | "medium" | "severe";
+type ChartMode = "severity" | "category" | "downtime";
+type TrendMetric = "clean" | "low" | "medium" | "severe" | "truckStatus" | "driver" | "load" | "other" | "downtime";
 
 type TrendPoint = ReturnType<typeof getReportAnalytics>["byDay"][number];
 
-const trendSeries: Array<{
+const trendSeriesByMode: Record<ChartMode, Array<{
   color: string;
   key: TrendMetric;
   label: string;
-}> = [
-  { color: "#10b981", key: "clean", label: "No problems" },
-  { color: "#facc15", key: "low", label: "Low" },
-  { color: "#f97316", key: "medium", label: "Medium" },
-  { color: "#f43f5e", key: "severe", label: "High / Critical" }
-];
+}>> = {
+  category: [
+    { color: "#0891b2", key: "truckStatus", label: "Truck status" },
+    { color: "#6366f1", key: "driver", label: "Driver" },
+    { color: "#f97316", key: "load", label: "Load" },
+    { color: "#64748b", key: "other", label: "Other" }
+  ],
+  downtime: [
+    { color: "#06b6d4", key: "downtime", label: "Downtime hours" },
+    { color: "#f43f5e", key: "severe", label: "High / Critical" }
+  ],
+  severity: [
+    { color: "#10b981", key: "clean", label: "No problems" },
+    { color: "#facc15", key: "low", label: "Low" },
+    { color: "#f97316", key: "medium", label: "Medium" },
+    { color: "#f43f5e", key: "severe", label: "High / Critical" }
+  ]
+};
+
+function getChartMode(value: string | undefined): ChartMode {
+  return value === "category" || value === "downtime" ? value : "severity";
+}
+
+function buildDashboardHref({
+  chartMode,
+  driverIds,
+  endDate,
+  range,
+  startDate,
+  truckIds
+}: {
+  chartMode: ChartMode;
+  driverIds: string[];
+  endDate?: string | null;
+  range: string;
+  startDate?: string | null;
+  truckIds: string[];
+}) {
+  const params = new URLSearchParams({ chart_mode: chartMode, range });
+
+  if (startDate) {
+    params.set("start_date", startDate);
+  }
+
+  if (endDate) {
+    params.set("end_date", endDate);
+  }
+
+  if (driverIds.length) {
+    params.set("driver_ids", driverIds.join(","));
+  }
+
+  if (truckIds.length) {
+    params.set("truck_ids", truckIds.join(","));
+  }
+
+  return `/dashboard?${params.toString()}`;
+}
 
 function trendValue(point: TrendPoint, key: TrendMetric) {
   return Number(point[key] ?? 0);
@@ -144,6 +202,7 @@ function formatTrendDate(value: string) {
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
   const range = params.range ?? "30d";
+  const chartMode = getChartMode(params.chart_mode);
   const dateRange = getDateRange(range, params.start_date, params.end_date);
   const previousDateRange = getPreviousDateRange(dateRange);
   const selectedDriverIds = getSelectedIds(params.driver_ids);
@@ -201,14 +260,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       label: `Truck ${truck.unit_number}`
     }));
   const recentTrend = analytics.byDay.slice(-14);
+  const trendSeries = trendSeriesByMode[chartMode];
   const maxTrend = Math.max(
     1,
-    ...recentTrend.flatMap((point) => [
-      point.clean,
-      point.low,
-      point.medium,
-      point.severe
-    ])
+    ...recentTrend.flatMap((point) => trendSeries.map((series) => trendValue(point, series.key)))
   );
   const topIssue = analytics.byIssue[0];
   const severityTotal = analytics.bySeverity.reduce((total, [, value]) => total + value, 0);
@@ -306,11 +361,75 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
       </div>
 
+      <div className="ops-summary-grid">
+        <Panel
+          action={<ClipboardList size={18} />}
+          title="Action Queue"
+        >
+          <div className="action-queue">
+            {analytics.actionItems.length ? (
+              analytics.actionItems.map((item) => (
+                <Link className={`action-item action-${item.priority}`} href={item.href} key={`${item.label}-${item.title}`}>
+                  <span>
+                    <small>{item.label}</small>
+                    <strong>{item.title}</strong>
+                    <em>{item.meta}</em>
+                  </span>
+                  <ArrowRight size={16} />
+                </Link>
+              ))
+            ) : (
+              <div className="empty">No action items yet.</div>
+            )}
+          </div>
+        </Panel>
+
+        <Panel action={<CalendarDays size={18} />} title="Weekly Summary">
+          <div className="summary-chip-list">
+            {analytics.weeklySummary.map((item) => (
+              <span key={item}>{item}</span>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel action={<Sparkles size={18} />} title="Operations Summary">
+          <div className="ai-summary-list">
+            {analytics.operationsSummary.map((item) => (
+              <p key={item}>{item}</p>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
       <div className="dashboard-grid-main">
         <section className="panel chart-panel">
           <div className="panel-header">
             <h2 className="panel-title">Daily operating trend</h2>
-            <span className="stat-note">{dateRange.label}</span>
+            <div className="chart-header-actions">
+              <span className="stat-note">{dateRange.label}</span>
+              <div className="chart-mode-tabs" aria-label="Trend chart mode">
+                {([
+                  ["severity", "Severity"],
+                  ["category", "Category"],
+                  ["downtime", "Downtime"]
+                ] as Array<[ChartMode, string]>).map(([mode, label]) => (
+                  <Link
+                    className={mode === chartMode ? "active" : ""}
+                    href={buildDashboardHref({
+                      chartMode: mode,
+                      driverIds: selectedDriverIds,
+                      endDate: dateRange.endDate,
+                      range,
+                      startDate: dateRange.startDate,
+                      truckIds: selectedTruckIds
+                    })}
+                    key={mode}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="line-trend-wrap">
             {recentTrend.length ? (

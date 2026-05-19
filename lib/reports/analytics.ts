@@ -40,20 +40,26 @@ type EntityScore = {
   downtime: number;
   high: number;
   id: string;
+  issues: CountMap;
   label: string;
   problems: number;
   score: number;
+  topIssue?: [string, number];
 };
 
 type TrendPoint = {
   clean: number;
   date: string;
   downtime: number;
+  driver: number;
   high: number;
+  load: number;
   low: number;
   medium: number;
+  other: number;
   problems: number;
   severe: number;
+  truckStatus: number;
   total: number;
 };
 
@@ -65,12 +71,21 @@ export type OperationalAlert = {
   title: string;
 };
 
+export type ActionItem = {
+  href: string;
+  label: string;
+  meta: string;
+  priority: "critical" | "high" | "medium";
+  title: string;
+};
+
 function getOrCreateEntity(map: Record<string, EntityScore>, id: string, label: string) {
   map[id] ??= {
     clean: 0,
     downtime: 0,
     high: 0,
     id,
+    issues: {},
     label,
     problems: 0,
     score: 0
@@ -158,17 +173,31 @@ export function getReportAnalytics(reports: OperationalReport[]) {
       clean: 0,
       date: report.report_date,
       downtime: 0,
+      driver: 0,
       high: 0,
+      load: 0,
       low: 0,
       medium: 0,
+      other: 0,
       problems: 0,
       severe: 0,
+      truckStatus: 0,
       total: 0
     };
     byDay[report.report_date].total += 1;
     byDay[report.report_date].downtime += downtime;
     increment(byCategory, categoryLabel(report.category));
     increment(bySeverity, report.severity);
+    if (report.category === "truck_status") {
+      byDay[report.report_date].truckStatus += 1;
+    } else if (report.category === "driver") {
+      byDay[report.report_date].driver += 1;
+    } else if (report.category === "load") {
+      byDay[report.report_date].load += 1;
+    } else {
+      byDay[report.report_date].other += 1;
+    }
+
     if (noProblem) {
       noProblemReports += 1;
       byDay[report.report_date].clean += 1;
@@ -199,6 +228,7 @@ export function getReportAnalytics(reports: OperationalReport[]) {
       } else {
         driver.problems += 1;
         increment(byDriver, report.driver_name);
+        increment(driver.issues, issueTypeLabel(report.category, report.issue_type));
       }
 
       if (high) {
@@ -216,6 +246,7 @@ export function getReportAnalytics(reports: OperationalReport[]) {
       } else {
         truck.problems += 1;
         increment(byTruck, `Truck ${report.truck_unit_number}`);
+        increment(truck.issues, issueTypeLabel(report.category, report.issue_type));
       }
 
       if (high) {
@@ -229,16 +260,26 @@ export function getReportAnalytics(reports: OperationalReport[]) {
   }
 
   const scoredDrivers = Object.values(driverScores)
-    .map((entity) => ({
-      ...entity,
-      score: calculateScore(entity)
-    }))
+    .map((entity) => {
+      const topIssue = sortedEntries(entity.issues)[0];
+
+      return {
+        ...entity,
+        score: calculateScore(entity),
+        topIssue
+      };
+    })
     .sort((a, b) => b.score - a.score || b.problems - a.problems);
   const scoredTrucks = Object.values(truckScores)
-    .map((entity) => ({
-      ...entity,
-      score: calculateScore(entity)
-    }))
+    .map((entity) => {
+      const topIssue = sortedEntries(entity.issues)[0];
+
+      return {
+        ...entity,
+        score: calculateScore(entity),
+        topIssue
+      };
+    })
     .sort((a, b) => b.score - a.score || b.problems - a.problems);
   const healthScore = calculateHealthScore({
     highSeverity,
@@ -247,8 +288,11 @@ export function getReportAnalytics(reports: OperationalReport[]) {
     totalReports: reports.length
   });
   const estimatedLoss = Math.round(totalDowntime * ESTIMATED_DOWNTIME_COST_PER_HOUR);
+  const problemRate = reports.length ? Math.round((problemReports / reports.length) * 100) : 0;
+  const cleanRate = reports.length ? Math.round((noProblemReports / reports.length) * 100) : 0;
   const criticalReports = bySeverity.critical ?? 0;
   const alerts: OperationalAlert[] = [];
+  const actionItems: ActionItem[] = [];
   const topDriver = scoredDrivers[0];
   const topTruck = scoredTrucks[0];
   const topIssue = sortedEntries(byIssue)[0];
@@ -261,25 +305,46 @@ export function getReportAnalytics(reports: OperationalReport[]) {
       severity: "critical",
       title: "Critical operating risk needs review"
     });
+    actionItems.push({
+      href: "/reports?range=30d&severity=critical",
+      label: "Critical",
+      meta: `${criticalReports} critical report${criticalReports === 1 ? "" : "s"}`,
+      priority: "critical",
+      title: "Resolve critical reports"
+    });
   }
 
   if (topTruck && topTruck.score >= 35) {
     alerts.push({
       href: `/reports?range=30d&truck_ids=${topTruck.id}`,
-      impact: `${topTruck.problems} problems · ${topTruck.downtime.toFixed(1)}h downtime`,
+      impact: `${topTruck.problems} problems · ${topTruck.downtime.toFixed(1)}h downtime · ${topTruck.topIssue?.[0] ?? "No top issue"}`,
       label: "Truck risk",
       severity: topTruck.high ? "high" : "medium",
       title: topTruck.label
+    });
+    actionItems.push({
+      href: `/reports?range=30d&truck_ids=${topTruck.id}`,
+      label: "Truck",
+      meta: `${topTruck.downtime.toFixed(1)}h downtime · ${topTruck.topIssue?.[0] ?? "Repeated problems"}`,
+      priority: topTruck.high ? "high" : "medium",
+      title: `Review ${topTruck.label}`
     });
   }
 
   if (topDriver && topDriver.score >= 30) {
     alerts.push({
       href: `/reports?range=30d&driver_ids=${topDriver.id}`,
-      impact: `${topDriver.problems} problems · ${topDriver.high} high/critical`,
+      impact: `${topDriver.problems} problems · ${topDriver.high} high/critical · ${topDriver.topIssue?.[0] ?? "No top issue"}`,
       label: "Driver risk",
       severity: topDriver.high ? "high" : "medium",
       title: topDriver.label
+    });
+    actionItems.push({
+      href: `/reports?range=30d&driver_ids=${topDriver.id}`,
+      label: "Driver",
+      meta: `${topDriver.problems} problems · ${topDriver.topIssue?.[0] ?? "Repeated problems"}`,
+      priority: topDriver.high ? "high" : "medium",
+      title: `Follow up with ${topDriver.label}`
     });
   }
 
@@ -291,9 +356,46 @@ export function getReportAnalytics(reports: OperationalReport[]) {
       severity: topIssue[1] >= 5 ? "high" : "medium",
       title: topIssue[0]
     });
+    actionItems.push({
+      href: `/reports?range=30d&q=${encodeURIComponent(topIssue[0])}`,
+      label: "Pattern",
+      meta: `${topIssue[1]} repeated occurrence${topIssue[1] === 1 ? "" : "s"}`,
+      priority: topIssue[1] >= 5 ? "high" : "medium",
+      title: `Investigate ${topIssue[0]}`
+    });
   }
 
+  if (!actionItems.length && reports.length) {
+    actionItems.push({
+      href: "/reports?range=30d",
+      label: "Review",
+      meta: `${noProblemReports} clean checks · ${problemReports} problems`,
+      priority: "medium",
+      title: "Scan latest reports"
+    });
+  }
+
+  const topCategory = sortedEntries(byCategory)[0];
+  const weeklySummary = reports.length
+    ? [
+        `${problemRate}% problem rate`,
+        `${cleanRate}% clean checks`,
+        `${totalDowntime.toFixed(1)}h downtime`,
+        topCategory ? `${topCategory[0]} is the highest-volume category` : "No category pressure",
+        topIssue ? `${topIssue[0]} is repeating` : "No repeated problem pattern"
+      ]
+    : ["No reports in this period yet."];
+  const operationsSummary = reports.length
+    ? [
+        healthScore >= 80 ? "Fleet signal is healthy." : healthScore >= 60 ? "Fleet signal needs attention." : "Fleet risk is elevated.",
+        topTruck ? `${topTruck.label} is the truck to watch${topTruck.topIssue ? `, led by ${topTruck.topIssue[0]}` : ""}.` : "No truck risk pattern yet.",
+        topDriver ? `${topDriver.label} is the driver to watch${topDriver.topIssue ? `, led by ${topDriver.topIssue[0]}` : ""}.` : "No driver risk pattern yet.",
+        topIssue ? `Main repeated issue: ${topIssue[0]}.` : "No repeated issue pattern yet."
+      ]
+    : ["Add daily reports to generate an operations summary."];
+
   return {
+    actionItems: actionItems.slice(0, 5),
     alerts: alerts.slice(0, 4),
     byCategory: sortedEntries(byCategory),
     byDay: Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)),
@@ -305,11 +407,13 @@ export function getReportAnalytics(reports: OperationalReport[]) {
     highSeverity,
     noProblemReports,
     problemReports,
-    problemRate: reports.length ? Math.round((problemReports / reports.length) * 100) : 0,
-    cleanRate: reports.length ? Math.round((noProblemReports / reports.length) * 100) : 0,
+    problemRate,
+    cleanRate,
     criticalReports,
     estimatedLoss,
     healthScore,
+    operationsSummary,
+    weeklySummary,
     totalDowntime,
     totalReports: reports.length,
     truckScores: scoredTrucks
