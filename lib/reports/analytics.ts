@@ -50,7 +50,10 @@ type TrendPoint = {
   date: string;
   downtime: number;
   high: number;
+  low: number;
+  medium: number;
   problems: number;
+  severe: number;
   total: number;
 };
 
@@ -156,7 +159,10 @@ export function getReportAnalytics(reports: OperationalReport[]) {
       date: report.report_date,
       downtime: 0,
       high: 0,
+      low: 0,
+      medium: 0,
       problems: 0,
+      severe: 0,
       total: 0
     };
     byDay[report.report_date].total += 1;
@@ -170,6 +176,14 @@ export function getReportAnalytics(reports: OperationalReport[]) {
       problemReports += 1;
       byDay[report.report_date].problems += 1;
       increment(byIssue, issueTypeLabel(report.category, report.issue_type));
+
+      if (report.severity === "low") {
+        byDay[report.report_date].low += 1;
+      } else if (report.severity === "medium") {
+        byDay[report.report_date].medium += 1;
+      } else {
+        byDay[report.report_date].severe += 1;
+      }
     }
 
     if (high) {

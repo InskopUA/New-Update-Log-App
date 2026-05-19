@@ -3,8 +3,6 @@ import type { CSSProperties } from "react";
 import {
   Activity,
   AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
   CircleDollarSign,
   Gauge,
   ShieldCheck,
@@ -63,14 +61,6 @@ function comparisonClass(direction: string) {
   return `signal-delta signal-${direction}`;
 }
 
-function comparisonIcon(direction: string) {
-  if (direction === "flat") {
-    return <Activity size={14} />;
-  }
-
-  return direction === "better" ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />;
-}
-
 function buildReportsHref({
   driverId,
   endDate,
@@ -103,6 +93,48 @@ function buildReportsHref({
   }
 
   return `/reports?${params.toString()}`;
+}
+
+type TrendMetric = "clean" | "low" | "medium" | "severe";
+
+type TrendPoint = ReturnType<typeof getReportAnalytics>["byDay"][number];
+
+const trendSeries: Array<{
+  color: string;
+  key: TrendMetric;
+  label: string;
+}> = [
+  { color: "#10b981", key: "clean", label: "No problems" },
+  { color: "#facc15", key: "low", label: "Low" },
+  { color: "#f97316", key: "medium", label: "Medium" },
+  { color: "#f43f5e", key: "severe", label: "High / Critical" }
+];
+
+function trendValue(point: TrendPoint, key: TrendMetric) {
+  return Number(point[key] ?? 0);
+}
+
+function buildLinePoints(points: TrendPoint[], key: TrendMetric, maxValue: number) {
+  const left = 54;
+  const top = 32;
+  const width = 880;
+  const height = 226;
+
+  return points
+    .map((point, index) => {
+      const x = points.length === 1 ? left + width / 2 : left + (index / (points.length - 1)) * width;
+      const y = top + height - (trendValue(point, key) / maxValue) * height;
+
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function formatTrendDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short"
+  });
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
@@ -170,15 +202,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activeTrucks = truckRows.filter(
     (truck) => truck.status === "active"
   ).length;
+  const recentTrend = analytics.byDay.slice(-14);
   const maxTrend = Math.max(
     1,
-    ...analytics.byDay.map((point) => Math.max(point.problems, point.clean))
+    ...recentTrend.flatMap((point) => [
+      point.clean,
+      point.low,
+      point.medium,
+      point.severe
+    ])
   );
-  const recentTrend = analytics.byDay.slice(-14);
   const topIssue = analytics.byIssue[0];
   const topDriver = analytics.driverScores[0];
   const topTruck = analytics.truckScores[0];
   const severityTotal = analytics.bySeverity.reduce((total, [, value]) => total + value, 0);
+  const chartDates = recentTrend.filter((_, index) => {
+    if (recentTrend.length <= 7) {
+      return true;
+    }
+
+    return index === 0 || index === recentTrend.length - 1 || index % 3 === 0;
+  });
 
   return (
     <>
@@ -199,98 +243,98 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         title="Command Center"
       />
 
-      <section className="command-hero">
-        <div className="health-orb" style={{ "--score": `${analytics.healthScore}%` } as CSSProperties}>
-          <div className="health-orb-inner">
+      <div className="modern-kpi-grid">
+        <section className="modern-kpi-card kpi-health">
+          <div className="modern-kpi-icon">
             <Gauge size={22} />
-            <strong>{analytics.healthScore}</strong>
-            <span>Fleet health</span>
           </div>
-        </div>
-        <div className="command-copy">
-          <div className="eyebrow">Operations intelligence</div>
-          <h2>Know what needs attention before it becomes expensive.</h2>
+          <span>Fleet Health</span>
+          <strong>{analytics.healthScore}</strong>
+          <em>{formatDelta(comparison.healthDelta)} vs previous period</em>
+          <div className="kpi-progress">
+            <span style={{ width: `${analytics.healthScore}%` }} />
+          </div>
+        </section>
+        <section className="modern-kpi-card">
+          <div className="modern-kpi-icon icon-cyan">
+            <Activity size={22} />
+          </div>
+          <span>Problem Rate</span>
+          <strong>{analytics.problemRate}%</strong>
+          <em>{analytics.problemReports} problems from {analytics.totalReports} checks</em>
+        </section>
+        <section className="modern-kpi-card">
+          <div className="modern-kpi-icon icon-orange">
+            <TimerReset size={22} />
+          </div>
+          <span>Downtime</span>
+          <strong>{analytics.totalDowntime.toFixed(1)}h</strong>
+          <em className={comparisonClass(comparison.downtimeDirection)}>
+            {formatDelta(comparison.downtimeDelta, "h")} vs previous
+          </em>
+        </section>
+        <section className="modern-kpi-card">
+          <div className="modern-kpi-icon icon-green">
+            <CircleDollarSign size={22} />
+          </div>
+          <span>Est. Loss</span>
+          <strong>{formatCurrency(analytics.estimatedLoss)}</strong>
+          <em>{topIssue?.[0] ?? "No pressure yet"}</em>
+        </section>
+      </div>
+
+      <section className="ops-brief">
+        <div>
+          <span className="insight-kicker">Operations intelligence</span>
+          <h2>Clean signal, issues, and risk in one readable view.</h2>
           <p>
             {analytics.totalReports
-              ? `${analytics.problemReports} problem checks, ${analytics.highSeverity} high-risk signals, and ${analytics.totalDowntime.toFixed(1)}h downtime in ${dateRange.label.toLowerCase()}.`
+              ? `${analytics.cleanRate}% clean checks, ${analytics.highSeverity} high-risk signals, and ${analytics.totalDowntime.toFixed(1)}h downtime in ${dateRange.label.toLowerCase()}.`
               : "No operating signal yet. Add daily reports to build your fleet baseline."}
           </p>
-          <div className="command-signal-row">
-            <span className={comparisonClass(comparison.healthDirection)}>
-              {comparisonIcon(comparison.healthDirection)}
-              {formatDelta(comparison.healthDelta)} health vs previous period
-            </span>
-            <span className={comparisonClass(comparison.problemRateDirection)}>
-              {comparisonIcon(comparison.problemRateDirection)}
-              {formatDelta(comparison.problemRateDelta, "%")} problem rate
-            </span>
-          </div>
         </div>
-        <div className="command-alert-stack">
-          {analytics.alerts.length ? (
-            analytics.alerts.map((alert) => (
-              <Link className={`alert-plaque alert-${alert.severity}`} href={alert.href} key={`${alert.label}-${alert.title}`}>
-                <span className="alert-icon"><AlertTriangle size={16} /></span>
-                <span>
-                  <small>{alert.label}</small>
-                  <strong>{alert.title}</strong>
-                  <em>{alert.impact}</em>
-                </span>
-              </Link>
-            ))
-          ) : (
-            <div className="alert-plaque alert-calm">
-              <span className="alert-icon"><ShieldCheck size={16} /></span>
-              <span>
-                <small>Clear</small>
-                <strong>No priority alerts</strong>
-                <em>Keep reports consistent to protect the trend.</em>
-              </span>
-            </div>
-          )}
+        <div className="ops-brief-metrics">
+          <span>
+            <strong>{activeDrivers}</strong>
+            Drivers
+          </span>
+          <span>
+            <strong>{activeTrucks}</strong>
+            Trucks
+          </span>
+          <span>
+            <strong>{analytics.healthScore}</strong>
+            Health
+          </span>
         </div>
       </section>
 
-      <div className="ops-hero">
-        <section className="neon-card neon-blue signal-card">
-          <Activity size={18} />
-          <div>
-            <div className="stat-label">Problem rate</div>
-            <div className="neon-value">{analytics.problemRate}%</div>
-            <div className="stat-note">
-              {analytics.problemReports} problems from {analytics.totalReports} checks
-            </div>
-          </div>
-        </section>
-        <section className="neon-card neon-green signal-card">
-          <ShieldCheck size={18} />
-          <div>
-            <div className="stat-label">Clean checks</div>
-            <div className="neon-value">{analytics.cleanRate}%</div>
-            <div className="stat-note">{analytics.noProblemReports} no-problem checks</div>
-          </div>
-        </section>
-        <section className="neon-card neon-orange signal-card">
-          <TimerReset size={18} />
-          <div>
-            <div className="stat-label">Downtime</div>
-            <div className="neon-value">{analytics.totalDowntime.toFixed(1)}h</div>
-            <div className="stat-note">
-              <span className={comparisonClass(comparison.downtimeDirection)}>
-                {comparisonIcon(comparison.downtimeDirection)}
-                {formatDelta(comparison.downtimeDelta, "h")}
+      <div className="attention-grid">
+        {analytics.alerts.length ? (
+          analytics.alerts.map((alert) => (
+            <Link className={`attention-card attention-${alert.severity}`} href={alert.href} key={`${alert.label}-${alert.title}`}>
+              <span className="attention-icon">
+                <span className="alert-icon"><AlertTriangle size={16} /></span>
               </span>
-            </div>
+              <span>
+                <small>{alert.label}</small>
+                <strong>{alert.title}</strong>
+                <em>{alert.impact}</em>
+              </span>
+            </Link>
+          ))
+        ) : (
+          <div className="attention-card attention-calm">
+            <span className="attention-icon">
+              <span className="alert-icon"><ShieldCheck size={16} /></span>
+            </span>
+            <span>
+              <small>Clear</small>
+              <strong>No priority alerts</strong>
+              <em>Keep reports consistent to protect the trend.</em>
+            </span>
           </div>
-        </section>
-        <section className="neon-card neon-red signal-card">
-          <CircleDollarSign size={18} />
-          <div>
-            <div className="stat-label">Est. loss</div>
-            <div className="neon-value neon-text-sm">{formatCurrency(analytics.estimatedLoss)}</div>
-            <div className="stat-note">{topIssue?.[0] ?? "No pressure yet"}</div>
-          </div>
-        </section>
+        )}
       </div>
 
       <div className="dashboard-grid-main">
@@ -299,40 +343,84 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <h2 className="panel-title">Daily operating trend</h2>
             <span className="stat-note">{dateRange.label}</span>
           </div>
-          <div className="trend-chart">
+          <div className="line-trend-wrap">
             {recentTrend.length ? (
-              recentTrend.map((point) => (
-                <div className="trend-day" key={point.date}>
-                  <div className="trend-bars">
-                    <span
-                      className="trend-bar trend-bar-problem"
-                      style={{ height: `${Math.max(8, (point.problems / maxTrend) * 100)}%` }}
-                    />
-                    <span
-                      className="trend-bar trend-bar-clean"
-                      style={{ height: `${Math.max(8, (point.clean / maxTrend) * 100)}%` }}
-                    />
-                    <span
-                      className="trend-bar trend-bar-downtime"
-                      style={{ height: `${Math.max(8, (point.downtime / Math.max(1, analytics.totalDowntime)) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="trend-label">
-                    {new Date(`${point.date}T00:00:00`).toLocaleDateString("en-US", {
-                      day: "2-digit",
-                      month: "short"
-                    })}
-                  </span>
-                </div>
-              ))
+              <svg aria-label="Daily operating trend" className="line-trend-chart" role="img" viewBox="0 0 1000 320">
+                <defs>
+                  <filter id="trendGlow" x="-20%" y="-40%" width="140%" height="180%">
+                    <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                {[0, 1, 2, 3].map((line) => (
+                  <line
+                    className="chart-grid-line"
+                    key={line}
+                    x1="54"
+                    x2="934"
+                    y1={32 + line * 75}
+                    y2={32 + line * 75}
+                  />
+                ))}
+                {trendSeries.map((series) => (
+                  <polyline
+                    fill="none"
+                    filter="url(#trendGlow)"
+                    key={series.key}
+                    points={buildLinePoints(recentTrend, series.key, maxTrend)}
+                    stroke={series.color}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="5"
+                  />
+                ))}
+                {recentTrend.map((point, index) =>
+                  trendSeries.map((series) => {
+                    const left = 54;
+                    const top = 32;
+                    const width = 880;
+                    const height = 226;
+                    const x = recentTrend.length === 1 ? left + width / 2 : left + (index / (recentTrend.length - 1)) * width;
+                    const y = top + height - (trendValue(point, series.key) / maxTrend) * height;
+
+                    return (
+                      <circle
+                        cx={x}
+                        cy={y}
+                        fill={series.color}
+                        key={`${point.date}-${series.key}`}
+                        r="4.5"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                      />
+                    );
+                  })
+                )}
+                {chartDates.map((point) => {
+                  const index = recentTrend.findIndex((trendPoint) => trendPoint.date === point.date);
+                  const x = recentTrend.length === 1 ? 494 : 54 + (index / (recentTrend.length - 1)) * 880;
+
+                  return (
+                    <text className="chart-date-label" key={point.date} textAnchor="middle" x={x} y="300">
+                      {formatTrendDate(point.date)}
+                    </text>
+                  );
+                })}
+              </svg>
             ) : (
               <div className="empty">No trend data yet.</div>
             )}
           </div>
           <div className="chart-legend">
-            <span><i className="legend-problem" /> Problems</span>
-            <span><i className="legend-clean" /> Clean</span>
-            <span><i className="legend-downtime" /> Downtime</span>
+            {trendSeries.map((series) => (
+              <span key={series.key}>
+                <i style={{ background: series.color }} />
+                {series.label}
+              </span>
+            ))}
           </div>
         </section>
 
