@@ -579,57 +579,6 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   height: 100%;
 }
 
-.ops-brief {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid #d8e5f5;
-  border-radius: 8px;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.05);
-  display: flex;
-  gap: 24px;
-  justify-content: space-between;
-  margin-top: 16px;
-  padding: 22px;
-}
-
-.ops-brief h2 {
-  color: #0f172a;
-  font-size: 28px;
-  line-height: 1.14;
-  margin: 0;
-}
-
-.ops-brief p {
-  color: #64748b;
-  line-height: 1.55;
-  margin: 8px 0 0;
-  max-width: 760px;
-}
-
-.ops-brief-metrics {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(90px, 1fr));
-}
-
-.ops-brief-metrics span {
-  background: #f8fafc;
-  border: 1px solid #dbe7f5;
-  border-radius: 8px;
-  color: #64748b;
-  display: grid;
-  font-size: 12px;
-  font-weight: 800;
-  gap: 3px;
-  padding: 12px;
-  text-transform: uppercase;
-}
-
-.ops-brief-metrics strong {
-  color: #0f172a;
-  font-size: 22px;
-}
-
 .attention-grid {
   display: grid;
   gap: 16px;
@@ -1089,6 +1038,75 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
 
 .pulse-label {
   font-weight: 750;
+}
+
+.breakdown-list {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.breakdown-row {
+  display: grid;
+  gap: 9px;
+}
+
+.breakdown-row > div:first-child {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.breakdown-row strong {
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.breakdown-row span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.breakdown-track {
+  background: #edf4fb;
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.breakdown-track span {
+  background: linear-gradient(90deg, #22d3ee, #2563eb);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.32);
+  display: block;
+  height: 100%;
+}
+
+.breakdown-summary {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-top: 14px;
+}
+
+.breakdown-summary span {
+  background: #f8fafc;
+  border: 1px solid #dbe7f5;
+  border-radius: 8px;
+  color: #64748b;
+  display: grid;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 3px;
+  padding: 12px;
+  text-transform: uppercase;
+}
+
+.breakdown-summary strong {
+  color: #0f172a;
+  font-size: 22px;
 }
 
 .entity-score-row {
@@ -1955,15 +1973,6 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   .report-explorer-strip,
   .report-command-strip,
   .report-search-form {
-    grid-template-columns: 1fr;
-  }
-
-  .ops-brief {
-    align-items: stretch;
-    display: grid;
-  }
-
-  .ops-brief-metrics {
     grid-template-columns: 1fr;
   }
 

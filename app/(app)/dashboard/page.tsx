@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -283,32 +282,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </section>
       </div>
 
-      <section className="ops-brief">
-        <div>
-          <span className="insight-kicker">Operations intelligence</span>
-          <h2>Clean signal, issues, and risk in one readable view.</h2>
-          <p>
-            {analytics.totalReports
-              ? `${analytics.cleanRate}% clean checks, ${analytics.highSeverity} high-risk signals, and ${analytics.totalDowntime.toFixed(1)}h downtime in ${dateRange.label.toLowerCase()}.`
-              : "No operating signal yet. Add daily reports to build your fleet baseline."}
-          </p>
-        </div>
-        <div className="ops-brief-metrics">
-          <span>
-            <strong>{activeDrivers}</strong>
-            Drivers
-          </span>
-          <span>
-            <strong>{activeTrucks}</strong>
-            Trucks
-          </span>
-          <span>
-            <strong>{analytics.healthScore}</strong>
-            Health
-          </span>
-        </div>
-      </section>
-
       <div className="attention-grid">
         {analytics.alerts.length ? (
           analytics.alerts.map((alert) => (
@@ -426,24 +399,35 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <section className="panel chart-panel">
           <div className="panel-header">
-            <h2 className="panel-title">Fleet pulse</h2>
-            <span className="stat-note">{activeDrivers} drivers / {activeTrucks} trucks</span>
+            <h2 className="panel-title">Report breakdown</h2>
+            <span className="stat-note">Where issues are coming from</span>
           </div>
-          <div className="pulse-grid">
-            {analytics.byCategory.map(([label, value]) => (
-              <div className="pulse-item" key={label}>
-                <div
-                  className="pulse-ring"
-                  style={{ "--value": `${percent(value, analytics.totalReports)}%` } as CSSProperties}
-                >
-                  <span>{percent(value, analytics.totalReports)}%</span>
+          <div className="breakdown-list">
+            {analytics.byCategory.length ? (
+              analytics.byCategory.map(([label, value]) => (
+                <div className="breakdown-row" key={label}>
+                  <div>
+                    <strong>{label}</strong>
+                    <span>{value} checks · {percent(value, analytics.totalReports)}%</span>
+                  </div>
+                  <div className="breakdown-track">
+                    <span style={{ width: `${Math.max(8, percent(value, analytics.totalReports))}%` }} />
+                  </div>
                 </div>
-                <div>
-                  <div className="pulse-label">{label}</div>
-                  <div className="stat-note">{value} checks</div>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="empty">No reports yet.</div>
+            )}
+            <div className="breakdown-summary">
+              <span>
+                <strong>{activeDrivers}</strong>
+                active drivers
+              </span>
+              <span>
+                <strong>{activeTrucks}</strong>
+                active trucks
+              </span>
+            </div>
           </div>
         </section>
       </div>
