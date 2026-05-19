@@ -56,5 +56,6 @@ supabase/team-members.sql
 supabase/drivers.sql
 supabase/trucks.sql
 supabase/reports.sql
+supabase/report-workflow.sql
 ```
 - Light, minimal SaaS dashboard layout

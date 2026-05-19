@@ -118,3 +118,32 @@ export async function createReport(formData: FormData) {
   revalidatePath("/reports");
   encodedRedirect("/reports", "message", "Report created.");
 }
+
+export async function resolveReport(formData: FormData) {
+  const supabase = await createClient();
+  const reportId = getString(formData, "report_id");
+  const status = getAllowedValue(
+    getString(formData, "status"),
+    ["in_progress", "resolved"],
+    "resolved"
+  );
+  const resolutionNote = getOptionalString(formData, "resolution_note");
+
+  if (!reportId) {
+    encodedRedirect("/reports", "error", "Report could not be updated.");
+  }
+
+  const { error } = await supabase.rpc("set_operational_report_status", {
+    new_status: status,
+    resolution_note_input: resolutionNote,
+    target_report_id: reportId
+  });
+
+  if (error) {
+    encodedRedirect("/reports", "error", "Report status could not be updated.");
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
+  encodedRedirect("/reports", "message", "Report status updated.");
+}
