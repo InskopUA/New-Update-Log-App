@@ -3,8 +3,7 @@ import {
   Activity,
   CircleDollarSign,
   Gauge,
-  TimerReset,
-  Zap
+  TimerReset
 } from "lucide-react";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -204,8 +203,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ])
   );
   const topIssue = analytics.byIssue[0];
-  const topDriver = analytics.driverScores[0];
-  const topTruck = analytics.truckScores[0];
   const severityTotal = analytics.bySeverity.reduce((total, [, value]) => total + value, 0);
   const chartDates = recentTrend.filter((_, index) => {
     if (recentTrend.length <= 7) {
@@ -363,38 +360,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </section>
       </div>
 
-      <div className="ops-insight-grid">
-        <section className="insight-panel">
-          <div>
-            <span className="insight-kicker">Top pressure</span>
-            <strong>{topIssue?.[0] ?? "No repeated issue"}</strong>
-            <p>{topIssue ? `${topIssue[1]} reports need pattern review.` : "Clean signal so far."}</p>
-          </div>
-          <Zap size={26} />
-        </section>
-        <section className="insight-panel">
-          <div>
-            <span className="insight-kicker">Driver risk</span>
-            <strong>{topDriver?.label ?? "No driver risk"}</strong>
-            <p>{topDriver ? `${topDriver.problems} problems, ${topDriver.clean} clean checks.` : "No driver reports yet."}</p>
-          </div>
-          <Activity size={26} />
-        </section>
-        <section className="insight-panel">
-          <div>
-            <span className="insight-kicker">Truck risk</span>
-            <strong>{topTruck?.label ?? "No truck risk"}</strong>
-            <p>{topTruck ? `${topTruck.downtime.toFixed(1)}h downtime, score ${topTruck.score}.` : "No truck reports yet."}</p>
-          </div>
-          <TimerReset size={26} />
-        </section>
-      </div>
-
       <div className="grid grid-3" style={{ marginTop: 16 }}>
         <Panel title="Repeated problems">
           {analytics.byIssue.length ? (
             analytics.byIssue.slice(0, 6).map(([label, value]) => (
-              <div className="metric-row metric-row-modern" key={label}>
+              <Link
+                className="metric-row metric-row-modern metric-row-link"
+                href={buildReportsHref({
+                  endDate: dateRange.endDate,
+                  range,
+                  startDate: dateRange.startDate
+                }) + `&q=${encodeURIComponent(label)}`}
+                key={label}
+              >
                 <span className="metric-label">{label}</span>
                 <span className="metric-bar">
                   <span
@@ -403,7 +381,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   />
                 </span>
                 <span>{value}</span>
-              </div>
+              </Link>
             ))
           ) : (
             <div className="empty">No problems reported yet.</div>
