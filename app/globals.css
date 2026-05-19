@@ -826,13 +826,13 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
 .line-trend-wrap {
   background:
     linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(255, 255, 255, 0) 58%);
-  min-height: 280px;
-  padding: 16px 18px 4px;
+  min-height: 350px;
+  padding: 20px 20px 8px;
 }
 
 .line-trend-chart {
   display: block;
-  height: 260px;
+  height: auto;
   overflow: visible;
   width: 100%;
 }
@@ -850,14 +850,21 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
 }
 
 .animated-trend-line {
-  animation: drawTrendLine 950ms ease-out both;
-  stroke-dasharray: 1200;
-  stroke-dashoffset: 1200;
+  stroke-dasharray: 12 10;
+  transition:
+    filter 180ms ease,
+    opacity 180ms ease,
+    stroke-width 180ms ease;
 }
 
-@keyframes drawTrendLine {
+.line-trend-chart:hover .animated-trend-line {
+  animation: trendFlow 900ms linear infinite;
+  stroke-width: 6;
+}
+
+@keyframes trendFlow {
   to {
-    stroke-dashoffset: 0;
+    stroke-dashoffset: -44;
   }
 }
 
@@ -1269,14 +1276,6 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
 
 .metric-row + .metric-row {
   border-top: 1px solid var(--border);
-}
-
-.metric-row-link {
-  color: inherit;
-}
-
-.metric-row-link:hover .metric-label {
-  color: var(--accent);
 }
 
 .metric-label {
