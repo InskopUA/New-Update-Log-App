@@ -2,13 +2,9 @@ import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
-  CalendarDays,
   CircleDollarSign,
-  ClipboardList,
   Gauge,
   ShieldCheck,
-  Sparkles,
   TimerReset
 } from "lucide-react";
 import { getAppContext } from "@/lib/auth/session";
@@ -21,6 +17,7 @@ import {
   type OperationalReport
 } from "@/lib/reports/analytics";
 import { categoryLabel, issueTypeLabel } from "@/lib/reports/taxonomy";
+import { OperationsSummaryModal } from "@/components/dashboard/operations-summary-modal";
 import { ReportRangeFilters } from "@/components/reports/report-range-filters";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
@@ -199,6 +196,22 @@ function formatTrendDate(value: string) {
   });
 }
 
+function filterReportsByRange(reports: OperationalReport[], range: string) {
+  const dateRange = getDateRange(range);
+
+  return reports.filter((report) => {
+    if (dateRange.startDate && report.report_date < dateRange.startDate) {
+      return false;
+    }
+
+    if (dateRange.endDate && report.report_date > dateRange.endDate) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
   const range = params.range ?? "30d";
@@ -211,7 +224,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const supabase = await createClient();
   const companyId = context.activeMembership?.company.id;
 
-  const [{ data: reports }, { data: previousReports }, { data: drivers }, { data: trucks }] = await Promise.all([
+  const [{ data: reports }, { data: previousReports }, { data: allReports }, { data: drivers }, { data: trucks }] = await Promise.all([
     supabase.rpc("get_operational_reports", {
       end_date: dateRange.endDate,
       start_date: dateRange.startDate,
@@ -224,6 +237,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           target_company_id: companyId
         })
       : Promise.resolve({ data: [] }),
+    supabase.rpc("get_operational_reports", {
+      end_date: null,
+      start_date: null,
+      target_company_id: companyId
+    }),
     supabase.rpc("get_drivers", {
       target_company_id: companyId
     }),
@@ -242,7 +260,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       (!selectedDriverIds.length || selectedDriverIds.includes(report.driver_id ?? "")) &&
       (!selectedTruckIds.length || selectedTruckIds.includes(report.truck_id ?? ""))
   );
+  const allReportRows = ((allReports as OperationalReport[] | null) ?? []).filter(
+    (report) =>
+      (!selectedDriverIds.length || selectedDriverIds.includes(report.driver_id ?? "")) &&
+      (!selectedTruckIds.length || selectedTruckIds.includes(report.truck_id ?? ""))
+  );
   const analytics = getReportAnalytics(reportRows);
+  const summaryRanges = [
+    { label: "7 days", value: "7d" },
+    { label: "30 days", value: "30d" },
+    { label: "90 days", value: "90d" },
+    { label: "All time", value: "all" }
+  ].map((summaryRange) => ({
+    ...summaryRange,
+    items: getReportAnalytics(filterReportsByRange(allReportRows, summaryRange.value)).operationsSummary
+  }));
   const previousAnalytics = getReportAnalytics(previousReportRows);
   const comparison = getAnalyticsComparison(analytics, previousAnalytics);
   const driverRows = (drivers as Array<{ full_name: string; id: string; status: string }> | null) ?? [];
@@ -279,16 +311,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     <>
       <PageHeader
         action={
-          <ReportRangeFilters
-            activeRange={range}
-            basePath="/dashboard"
-            drivers={driverOptions}
-            endDate={dateRange.endDate}
-            selectedDriverIds={selectedDriverIds}
-            selectedTruckIds={selectedTruckIds}
-            startDate={dateRange.startDate}
-            trucks={truckOptions}
-          />
+          <div className="dashboard-header-actions">
+            <OperationsSummaryModal ranges={summaryRanges} />
+            <ReportRangeFilters
+              activeRange={range}
+              basePath="/dashboard"
+              drivers={driverOptions}
+              endDate={dateRange.endDate}
+              selectedDriverIds={selectedDriverIds}
+              selectedTruckIds={selectedTruckIds}
+              startDate={dateRange.startDate}
+              trucks={truckOptions}
+            />
+          </div>
         }
         title="Command Center"
       />
@@ -359,46 +394,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </span>
           </div>
         )}
-      </div>
-
-      <div className="ops-summary-grid">
-        <Panel
-          action={<ClipboardList size={18} />}
-          title="Action Queue"
-        >
-          <div className="action-queue">
-            {analytics.actionItems.length ? (
-              analytics.actionItems.map((item) => (
-                <Link className={`action-item action-${item.priority}`} href={item.href} key={`${item.label}-${item.title}`}>
-                  <span>
-                    <small>{item.label}</small>
-                    <strong>{item.title}</strong>
-                    <em>{item.meta}</em>
-                  </span>
-                  <ArrowRight size={16} />
-                </Link>
-              ))
-            ) : (
-              <div className="empty">No action items yet.</div>
-            )}
-          </div>
-        </Panel>
-
-        <Panel action={<CalendarDays size={18} />} title="Weekly Summary">
-          <div className="summary-chip-list">
-            {analytics.weeklySummary.map((item) => (
-              <span key={item}>{item}</span>
-            ))}
-          </div>
-        </Panel>
-
-        <Panel action={<Sparkles size={18} />} title="Operations Summary">
-          <div className="ai-summary-list">
-            {analytics.operationsSummary.map((item) => (
-              <p key={item}>{item}</p>
-            ))}
-          </div>
-        </Panel>
       </div>
 
       <div className="dashboard-grid-main">
