@@ -116,6 +116,7 @@ export async function createReport(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/reports");
+  revalidatePath("/today");
   encodedRedirect("/reports", "message", "Report created.");
 }
 
@@ -145,5 +146,6 @@ export async function resolveReport(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/reports");
+  revalidatePath("/today");
   encodedRedirect("/reports", "message", "Report status updated.");
 }

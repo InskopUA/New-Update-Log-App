@@ -62,6 +62,7 @@ export async function createMaintenanceLog(formData: FormData) {
   revalidatePath("/maintenance");
   revalidatePath(`/trucks/${truckId}`);
   revalidatePath("/actions");
+  revalidatePath("/today");
   encodedRedirect(returnTo, "message", "Repair log created.");
 }
 
@@ -93,6 +94,7 @@ export async function updateMaintenanceLogStatus(formData: FormData) {
 
   revalidatePath("/maintenance");
   revalidatePath("/actions");
+  revalidatePath("/today");
   if (truckId) {
     revalidatePath(`/trucks/${truckId}`);
   }

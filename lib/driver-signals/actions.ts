@@ -49,6 +49,7 @@ export async function createDriverSignal(formData: FormData) {
 
   revalidatePath(`/drivers/${driverId}`);
   revalidatePath("/actions");
+  revalidatePath("/today");
   encodedRedirect(returnTo, "message", "Driver signal created.");
 }
 
@@ -79,5 +80,6 @@ export async function resolveDriverSignal(formData: FormData) {
     revalidatePath(`/drivers/${driverId}`);
   }
   revalidatePath("/actions");
+  revalidatePath("/today");
   encodedRedirect(returnTo, "message", "Driver signal resolved.");
 }

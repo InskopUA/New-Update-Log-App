@@ -1477,6 +1477,72 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   color: #10b981;
 }
 
+.control-room-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.today-list {
+  display: grid;
+}
+
+.today-row {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.today-row:first-child {
+  padding-top: 0;
+}
+
+.today-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.today-row:hover strong {
+  color: var(--accent);
+}
+
+.today-row > span:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.today-row strong,
+.today-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.today-row small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.today-row-warning {
+  background:
+    linear-gradient(90deg, rgba(249, 115, 22, 0.08), transparent 45%);
+  margin: 0 -18px;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+.today-row-critical {
+  background:
+    linear-gradient(90deg, rgba(244, 63, 94, 0.08), transparent 45%);
+  margin: 0 -18px;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
 .driver-signal-summary {
   background:
     linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(255, 255, 255, 0.92));
@@ -2374,6 +2440,7 @@ html[data-sidebar="collapsed"] .sidebar-toggle {
   .attention-grid,
   .detail-command-grid,
   .action-command-grid,
+  .control-room-grid,
   .report-explorer-strip,
   .report-command-strip,
   .report-search-form {
