@@ -1,10 +1,8 @@
 import Link from "next/link";
 import {
   Activity,
-  AlertTriangle,
   CircleDollarSign,
   Gauge,
-  ShieldCheck,
   TimerReset
 } from "lucide-react";
 import { getAppContext } from "@/lib/auth/session";
@@ -124,29 +122,14 @@ function getChartPoint(points: TrendPoint[], key: TrendMetric, maxValue: number,
   return { x, y };
 }
 
-function buildSmoothPath(points: TrendPoint[], key: TrendMetric, maxValue: number) {
-  if (!points.length) {
-    return "";
-  }
+function buildLinePoints(points: TrendPoint[], key: TrendMetric, maxValue: number) {
+  return points
+    .map((_, index) => {
+      const { x, y } = getChartPoint(points, key, maxValue, index);
 
-  const chartPoints = points.map((_, index) => getChartPoint(points, key, maxValue, index));
-
-  if (chartPoints.length === 1) {
-    const point = chartPoints[0];
-
-    return `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-  }
-
-  return chartPoints.reduce((path, point, index) => {
-    if (index === 0) {
-      return `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-    }
-
-    const previous = chartPoints[index - 1];
-    const controlX = previous.x + (point.x - previous.x) / 2;
-
-    return `${path} C ${controlX.toFixed(1)} ${previous.y.toFixed(1)}, ${controlX.toFixed(1)} ${point.y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-  }, "");
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
 }
 
 function formatTrendDate(value: string) {
@@ -293,34 +276,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </section>
       </div>
 
-      <div className="attention-grid">
-        {analytics.alerts.length ? (
-          analytics.alerts.map((alert) => (
-            <Link className={`attention-card attention-${alert.severity}`} href={alert.href} key={`${alert.label}-${alert.title}`}>
-              <span className="attention-icon">
-                <span className="alert-icon"><AlertTriangle size={16} /></span>
-              </span>
-              <span>
-                <small>{alert.label}</small>
-                <strong>{alert.title}</strong>
-                <em>{alert.impact}</em>
-              </span>
-            </Link>
-          ))
-        ) : (
-          <div className="attention-card attention-calm">
-            <span className="attention-icon">
-              <span className="alert-icon"><ShieldCheck size={16} /></span>
-            </span>
-            <span>
-              <small>Clear</small>
-              <strong>No priority alerts</strong>
-              <em>Keep reports consistent to protect the trend.</em>
-            </span>
-          </div>
-        )}
-      </div>
-
       <div className="dashboard-grid-main">
         <section className="panel chart-panel">
           <div className="panel-header">
@@ -329,7 +284,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
           <div className="line-trend-wrap">
             {recentTrend.length ? (
-              <svg aria-label="Daily operating trend" className="line-trend-chart" role="img" viewBox="0 0 1000 320">
+              <svg
+                aria-label="Daily operating trend"
+                className="line-trend-chart"
+                preserveAspectRatio="none"
+                role="img"
+                viewBox="0 0 1000 320"
+              >
                 <defs>
                   <filter id="trendGlow" x="-20%" y="-40%" width="140%" height="180%">
                     <feGaussianBlur stdDeviation="4" result="coloredBlur" />
@@ -350,11 +311,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   />
                 ))}
                 {trendSeries.map((series) => (
-                  <path
+                  <polyline
                     fill="none"
                     filter="url(#trendGlow)"
-                    d={buildSmoothPath(recentTrend, series.key, maxTrend)}
                     key={series.key}
+                    points={buildLinePoints(recentTrend, series.key, maxTrend)}
                     stroke={series.color}
                     strokeLinecap="round"
                     strokeLinejoin="round"
