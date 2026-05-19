@@ -112,20 +112,41 @@ function trendValue(point: TrendPoint, key: TrendMetric) {
   return Number(point[key] ?? 0);
 }
 
-function buildLinePoints(points: TrendPoint[], key: TrendMetric, maxValue: number) {
-  const left = 54;
+function getChartPoint(points: TrendPoint[], key: TrendMetric, maxValue: number, index: number) {
+  const left = 24;
   const top = 32;
-  const width = 880;
+  const width = 952;
   const height = 226;
+  const point = points[index];
+  const x = points.length === 1 ? left + width / 2 : left + (index / (points.length - 1)) * width;
+  const y = top + height - (trendValue(point, key) / maxValue) * height;
 
-  return points
-    .map((point, index) => {
-      const x = points.length === 1 ? left + width / 2 : left + (index / (points.length - 1)) * width;
-      const y = top + height - (trendValue(point, key) / maxValue) * height;
+  return { x, y };
+}
 
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+function buildSmoothPath(points: TrendPoint[], key: TrendMetric, maxValue: number) {
+  if (!points.length) {
+    return "";
+  }
+
+  const chartPoints = points.map((_, index) => getChartPoint(points, key, maxValue, index));
+
+  if (chartPoints.length === 1) {
+    const point = chartPoints[0];
+
+    return `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+  }
+
+  return chartPoints.reduce((path, point, index) => {
+    if (index === 0) {
+      return `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+    }
+
+    const previous = chartPoints[index - 1];
+    const controlX = previous.x + (point.x - previous.x) / 2;
+
+    return `${path} C ${controlX.toFixed(1)} ${previous.y.toFixed(1)}, ${controlX.toFixed(1)} ${point.y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+  }, "");
 }
 
 function formatTrendDate(value: string) {
@@ -229,7 +250,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             trucks={truckOptions}
           />
         }
-        description="Live operating signal from daily reports, clean checks, downtime, and repeated problems."
         title="Command Center"
       />
 
@@ -323,18 +343,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <line
                     className="chart-grid-line"
                     key={line}
-                    x1="54"
-                    x2="934"
+                    x1="24"
+                    x2="976"
                     y1={32 + line * 75}
                     y2={32 + line * 75}
                   />
                 ))}
                 {trendSeries.map((series) => (
-                  <polyline
+                  <path
                     fill="none"
                     filter="url(#trendGlow)"
+                    d={buildSmoothPath(recentTrend, series.key, maxTrend)}
                     key={series.key}
-                    points={buildLinePoints(recentTrend, series.key, maxTrend)}
                     stroke={series.color}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -343,12 +363,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 ))}
                 {recentTrend.map((point, index) =>
                   trendSeries.map((series) => {
-                    const left = 54;
-                    const top = 32;
-                    const width = 880;
-                    const height = 226;
-                    const x = recentTrend.length === 1 ? left + width / 2 : left + (index / (recentTrend.length - 1)) * width;
-                    const y = top + height - (trendValue(point, series.key) / maxTrend) * height;
+                    const { x, y } = getChartPoint(recentTrend, series.key, maxTrend, index);
 
                     return (
                       <circle
@@ -365,7 +380,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 )}
                 {chartDates.map((point) => {
                   const index = recentTrend.findIndex((trendPoint) => trendPoint.date === point.date);
-                  const x = recentTrend.length === 1 ? 494 : 54 + (index / (recentTrend.length - 1)) * 880;
+                  const { x } = getChartPoint(recentTrend, "clean", maxTrend, index);
 
                   return (
                     <text className="chart-date-label" key={point.date} textAnchor="middle" x={x} y="300">
