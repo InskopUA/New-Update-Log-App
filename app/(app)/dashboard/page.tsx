@@ -1,8 +1,10 @@
 import Link from "next/link";
 import {
   Activity,
+  AlertTriangle,
   CircleDollarSign,
   Gauge,
+  ShieldCheck,
   TimerReset,
   Zap
 } from "lucide-react";
@@ -186,6 +188,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       id: driver.id,
       label: driver.full_name
     }));
+  const activeDrivers = driverRows.filter(
+    (driver) => driver.status === "active"
+  ).length;
   const truckRows = (trucks as Array<{ id: string; status: string; unit_number: string }> | null) ?? [];
   const truckOptions = truckRows
     .filter((truck) => truck.status !== "inactive")
@@ -193,6 +198,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       id: truck.id,
       label: `Truck ${truck.unit_number}`
     }));
+  const activeTrucks = truckRows.filter(
+    (truck) => truck.status === "active"
+  ).length;
   const recentTrend = analytics.byDay.slice(-14);
   const maxTrend = Math.max(
     1,
@@ -274,7 +282,35 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </section>
       </div>
 
-      <div className="dashboard-trend-main">
+      <div className="attention-grid">
+        {analytics.alerts.length ? (
+          analytics.alerts.map((alert) => (
+            <Link className={`attention-card attention-${alert.severity}`} href={alert.href} key={`${alert.label}-${alert.title}`}>
+              <span className="attention-icon">
+                <span className="alert-icon"><AlertTriangle size={16} /></span>
+              </span>
+              <span>
+                <small>{alert.label}</small>
+                <strong>{alert.title}</strong>
+                <em>{alert.impact}</em>
+              </span>
+            </Link>
+          ))
+        ) : (
+          <div className="attention-card attention-calm">
+            <span className="attention-icon">
+              <span className="alert-icon"><ShieldCheck size={16} /></span>
+            </span>
+            <span>
+              <small>Clear</small>
+              <strong>No priority alerts</strong>
+              <em>Keep reports consistent to protect the trend.</em>
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="dashboard-grid-main">
         <section className="panel chart-panel">
           <div className="panel-header">
             <h2 className="panel-title">Daily operating trend</h2>
@@ -304,7 +340,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 ))}
                 {trendSeries.map((series) => (
                   <polyline
-                    className="animated-trend-line"
                     fill="none"
                     filter="url(#trendGlow)"
                     key={series.key}
@@ -359,6 +394,40 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 {series.label}
               </span>
             ))}
+          </div>
+        </section>
+
+        <section className="panel chart-panel">
+          <div className="panel-header">
+            <h2 className="panel-title">Report breakdown</h2>
+            <span className="stat-note">Where issues are coming from</span>
+          </div>
+          <div className="breakdown-list">
+            {analytics.byCategory.length ? (
+              analytics.byCategory.map(([label, value]) => (
+                <div className="breakdown-row" key={label}>
+                  <div>
+                    <strong>{label}</strong>
+                    <span>{value} checks · {percent(value, analytics.totalReports)}%</span>
+                  </div>
+                  <div className="breakdown-track">
+                    <span style={{ width: `${Math.max(8, percent(value, analytics.totalReports))}%` }} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="empty">No reports yet.</div>
+            )}
+            <div className="breakdown-summary">
+              <span>
+                <strong>{activeDrivers}</strong>
+                active drivers
+              </span>
+              <span>
+                <strong>{activeTrucks}</strong>
+                active trucks
+              </span>
+            </div>
           </div>
         </section>
       </div>
