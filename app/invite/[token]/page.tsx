@@ -44,8 +44,8 @@ function AuthLinks({ email, token }: { email: string; token: string }) {
       <Link className="button button-primary button-full" href={`/signup?${signupParams.toString()}`}>
         Create account
       </Link>
-      <Link className="button button-secondary button-full" href={`/login?${loginParams.toString()}`}>
-        Sign in to accept
+      <Link className="muted-link invite-signin-link" href={`/login?${loginParams.toString()}`}>
+        Already have an account? Sign in
       </Link>
     </div>
   );

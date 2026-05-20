@@ -237,6 +237,11 @@ a {
   color: var(--text);
 }
 
+.invite-signin-link {
+  justify-self: center;
+  margin-top: 4px;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
