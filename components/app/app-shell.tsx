@@ -1,15 +1,14 @@
 import { BarChart3, CalendarCheck2, ClipboardCheck, ClipboardList, IdCard, Settings, Truck, UsersRound, Wrench } from "lucide-react";
 import Link from "next/link";
-import { signOut, switchWorkspace } from "@/lib/auth/actions";
-import { roleLabel } from "@/lib/permissions";
+import { signOut } from "@/lib/auth/actions";
 import type { Membership } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { AddReportModal } from "@/components/reports/add-report-modal";
 import { SidebarToggle } from "@/components/app/sidebar-toggle";
+import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
 
 type AppShellProps = {
   children: React.ReactNode;
-  email: string;
   activeMembership: Membership;
   memberships: Membership[];
   reportDrivers: Array<{
@@ -70,7 +69,6 @@ const navItems = [
 
 export function AppShell({
   children,
-  email,
   activeMembership,
   memberships,
   reportDrivers
@@ -94,25 +92,6 @@ export function AppShell({
           <SidebarToggle />
         </div>
 
-        {hasMultipleWorkspaces ? (
-          <form action={switchWorkspace} className="workspace-switcher">
-            <label htmlFor="workspace-switcher">Workspace</label>
-            <select
-              aria-label="Switch workspace"
-              defaultValue={activeMembership.company_id}
-              id="workspace-switcher"
-              name="company_id"
-            >
-              {memberships.map((membership) => (
-                <option key={membership.id} value={membership.company_id}>
-                  {membership.company.name} · {roleLabel(membership.role)}
-                </option>
-              ))}
-            </select>
-            <button type="submit">Switch</button>
-          </form>
-        ) : null}
-
         <nav className="nav" aria-label="Main navigation">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -126,10 +105,12 @@ export function AppShell({
         </nav>
 
         <div className="sidebar-footer">
-          <div className="user-meta">
-            <span className="user-email">{email}</span>
-            <span className="user-role">{roleLabel(activeMembership.role)}</span>
-          </div>
+          {hasMultipleWorkspaces ? (
+            <WorkspaceSwitcher
+              activeCompanyId={activeMembership.company_id}
+              memberships={memberships}
+            />
+          ) : null}
           <form action={signOut}>
             <Button fullWidth type="submit" variant="secondary">
               Sign out

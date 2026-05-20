@@ -55,7 +55,6 @@ export default async function ProtectedAppLayout({
   return (
     <AppShell
       activeMembership={context.activeMembership}
-      email={context.profile?.email ?? context.user.email ?? ""}
       memberships={context.memberships}
       reportDrivers={reportDrivers}
     >
