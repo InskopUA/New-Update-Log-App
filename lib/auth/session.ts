@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export type Company = {
@@ -31,6 +32,8 @@ export async function getUser() {
 
 export async function getAppContext() {
   const supabase = await createClient();
+  const cookieStore = await cookies();
+  const activeCompanyId = cookieStore.get("deeptruck:active-company-id")?.value;
   const {
     data: { user },
     error: userError
@@ -60,11 +63,15 @@ export async function getAppContext() {
   const normalizedMemberships = ((memberships ?? []) as unknown as Membership[]).filter(
     (membership) => membership.company
   );
+  const activeMembership =
+    normalizedMemberships.find((membership) => membership.company_id === activeCompanyId) ??
+    normalizedMemberships[0] ??
+    null;
 
   return {
     user,
     profile,
     memberships: normalizedMemberships,
-    activeMembership: normalizedMemberships[0] ?? null
+    activeMembership
   };
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { sendInviteEmail } from "@/lib/email/resend";
 import { createClient } from "@/lib/supabase/server";
@@ -26,6 +26,22 @@ function getSafeNext(value: string, fallback = "/dashboard") {
 function redirectWithMessage(path: string, params: Record<string, string>): never {
   const searchParams = new URLSearchParams(params);
   redirect(`${path}?${searchParams.toString()}`);
+}
+
+function getInviteTokenFromPath(path: string) {
+  const match = path.match(/^\/invite\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function setActiveCompany(companyId: string) {
+  const cookieStore = await cookies();
+  cookieStore.set("deeptruck:active-company-id", companyId, {
+    httpOnly: true,
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production"
+  });
 }
 
 async function getRequestOrigin() {
@@ -81,6 +97,20 @@ export async function signIn(formData: FormData) {
     encodedRedirect("/login", "error", getPublicAuthError(error.message));
   }
 
+  const inviteToken = getInviteTokenFromPath(next);
+
+  if (inviteToken) {
+    const { data: companyId, error: inviteError } = await supabase.rpc("accept_company_invite", {
+      invite_token: inviteToken
+    });
+
+    if (!inviteError && companyId) {
+      await setActiveCompany(companyId as string);
+      revalidatePath("/", "layout");
+      redirect("/dashboard");
+    }
+  }
+
   revalidatePath("/", "layout");
   redirect(next);
 }
@@ -116,6 +146,20 @@ export async function signUp(formData: FormData) {
       message: "Account created. Check your email to confirm the account.",
       next
     });
+  }
+
+  const inviteToken = getInviteTokenFromPath(next);
+
+  if (inviteToken) {
+    const { data: companyId, error: inviteError } = await supabase.rpc("accept_company_invite", {
+      invite_token: inviteToken
+    });
+
+    if (!inviteError && companyId) {
+      await setActiveCompany(companyId as string);
+      revalidatePath("/", "layout");
+      redirect("/dashboard");
+    }
   }
 
   redirect(next);
@@ -220,7 +264,7 @@ export async function acceptInvite(formData: FormData) {
     encodedRedirect("/login", "error", "Invite token is missing.");
   }
 
-  const { error } = await supabase.rpc("accept_company_invite", {
+  const { data: companyId, error } = await supabase.rpc("accept_company_invite", {
     invite_token: token
   });
 
@@ -230,6 +274,10 @@ export async function acceptInvite(formData: FormData) {
       "error",
       "Invite could not be accepted. Check that you are signed in with the invited email and that the invite is still active."
     );
+  }
+
+  if (companyId) {
+    await setActiveCompany(companyId as string);
   }
 
   revalidatePath("/", "layout");

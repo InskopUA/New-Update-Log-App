@@ -35,11 +35,17 @@ function AuthLinks({ email, token }: { email: string; token: string }) {
     email,
     next
   });
+  const loginParams = new URLSearchParams({
+    next
+  });
 
   return (
     <div className="form">
       <Link className="button button-primary button-full" href={`/signup?${signupParams.toString()}`}>
-        Create / activate account
+        Create account
+      </Link>
+      <Link className="button button-secondary button-full" href={`/login?${loginParams.toString()}`}>
+        Sign in to accept
       </Link>
     </div>
   );

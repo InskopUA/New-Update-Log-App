@@ -22,6 +22,52 @@ function redirectToLoginWithError(origin: string, message: string) {
   return NextResponse.redirect(loginUrl);
 }
 
+function getInviteTokenFromPath(path: string) {
+  const match = path.match(/^\/invite\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function redirectAfterAuth({
+  next,
+  origin,
+  requestUrl,
+  supabase
+}: {
+  next: string;
+  origin: string;
+  requestUrl: URL;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+}) {
+  const inviteToken = getInviteTokenFromPath(next);
+
+  if (!inviteToken) {
+    return NextResponse.redirect(new URL(next, origin));
+  }
+
+  const { data: companyId, error } = await supabase.rpc("accept_company_invite", {
+    invite_token: inviteToken
+  });
+
+  if (error || !companyId) {
+    const inviteUrl = new URL(next, origin);
+    inviteUrl.searchParams.set(
+      "error",
+      "Invite could not be accepted. Check that you are signed in with the invited email and that the invite is still active."
+    );
+    return NextResponse.redirect(inviteUrl);
+  }
+
+  const response = NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
+  response.cookies.set("deeptruck:active-company-id", companyId as string, {
+    httpOnly: true,
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production"
+  });
+  return response;
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -42,7 +88,12 @@ export async function GET(request: Request) {
       return redirectToLoginWithError(requestUrl.origin, exchangeError.message);
     }
 
-    return NextResponse.redirect(new URL(next, requestUrl.origin));
+    return redirectAfterAuth({
+      next,
+      origin: requestUrl.origin,
+      requestUrl,
+      supabase
+    });
   }
 
   if (tokenHash && type) {
@@ -55,7 +106,12 @@ export async function GET(request: Request) {
       return redirectToLoginWithError(requestUrl.origin, verifyError.message);
     }
 
-    return NextResponse.redirect(new URL(next, requestUrl.origin));
+    return redirectAfterAuth({
+      next,
+      origin: requestUrl.origin,
+      requestUrl,
+      supabase
+    });
   }
 
   return redirectToLoginWithError(requestUrl.origin, "Confirmation link is invalid or expired.");

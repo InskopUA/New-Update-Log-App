@@ -341,6 +341,21 @@ begin
     raise exception 'Invite not found';
   end if;
 
+  if lower(invite_record.email) <> current_email then
+    raise exception 'Invite email does not match current user';
+  end if;
+
+  if invite_record.status = 'accepted' then
+    insert into public.company_members (company_id, user_id, role, status)
+    values (invite_record.company_id, auth.uid(), invite_record.role, 'active')
+    on conflict (company_id, user_id) do update
+      set role = excluded.role,
+          status = 'active',
+          updated_at = now();
+
+    return invite_record.company_id;
+  end if;
+
   if invite_record.status <> 'pending' then
     raise exception 'Invite is not pending';
   end if;
@@ -353,14 +368,11 @@ begin
     raise exception 'Invite expired';
   end if;
 
-  if lower(invite_record.email) <> current_email then
-    raise exception 'Invite email does not match current user';
-  end if;
-
   insert into public.company_members (company_id, user_id, role, status)
   values (invite_record.company_id, auth.uid(), invite_record.role, 'active')
   on conflict (company_id, user_id) do update
-    set status = 'active',
+    set role = excluded.role,
+        status = 'active',
         updated_at = now();
 
   update public.company_invites
