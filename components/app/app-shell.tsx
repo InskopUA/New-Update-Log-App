@@ -1,6 +1,6 @@
 import { BarChart3, CalendarCheck2, ClipboardCheck, ClipboardList, IdCard, Settings, Truck, UsersRound, Wrench } from "lucide-react";
 import Link from "next/link";
-import { signOut } from "@/lib/auth/actions";
+import { signOut, switchWorkspace } from "@/lib/auth/actions";
 import { roleLabel } from "@/lib/permissions";
 import type { Membership } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ type AppShellProps = {
   children: React.ReactNode;
   email: string;
   activeMembership: Membership;
+  memberships: Membership[];
   reportDrivers: Array<{
     assignedTruckLabel: string | null;
     id: string;
@@ -71,9 +72,11 @@ export function AppShell({
   children,
   email,
   activeMembership,
+  memberships,
   reportDrivers
 }: AppShellProps) {
   const canCreateReports = ["owner", "admin", "dispatcher"].includes(activeMembership.role);
+  const hasMultipleWorkspaces = memberships.length > 1;
 
   return (
     <div className="app-shell">
@@ -90,6 +93,25 @@ export function AppShell({
           </Link>
           <SidebarToggle />
         </div>
+
+        {hasMultipleWorkspaces ? (
+          <form action={switchWorkspace} className="workspace-switcher">
+            <label htmlFor="workspace-switcher">Workspace</label>
+            <select
+              aria-label="Switch workspace"
+              defaultValue={activeMembership.company_id}
+              id="workspace-switcher"
+              name="company_id"
+            >
+              {memberships.map((membership) => (
+                <option key={membership.id} value={membership.company_id}>
+                  {membership.company.name} · {roleLabel(membership.role)}
+                </option>
+              ))}
+            </select>
+            <button type="submit">Switch</button>
+          </form>
+        ) : null}
 
         <nav className="nav" aria-label="Main navigation">
           {navItems.map((item) => {

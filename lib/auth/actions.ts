@@ -172,6 +172,40 @@ export async function signOut() {
   redirect("/login");
 }
 
+export async function switchWorkspace(formData: FormData) {
+  const supabase = await createClient();
+  const companyId = getString(formData, "company_id");
+
+  if (!companyId) {
+    encodedRedirect("/dashboard", "error", "Workspace could not be selected.");
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    encodedRedirect("/login", "error", "Sign in again to switch workspace.");
+  }
+
+  const { data: membership, error } = await supabase
+    .from("company_members")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error || !membership) {
+    encodedRedirect("/dashboard", "error", "You do not have access to that workspace.");
+  }
+
+  await setActiveCompany(companyId);
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
+}
+
 export async function createCompany(formData: FormData) {
   const supabase = await createClient();
   const companyName = getString(formData, "company_name");
