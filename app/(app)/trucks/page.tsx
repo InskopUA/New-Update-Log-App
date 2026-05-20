@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { createTruck, deactivateTruck } from "@/lib/trucks/actions";
 import { getAppContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -12,6 +13,7 @@ type TrucksPageProps = {
   searchParams: Promise<{
     error?: string;
     message?: string;
+    new?: string;
   }>;
 };
 
@@ -63,10 +65,22 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
   const activeDrivers = ((drivers as Driver[] | null) ?? []).filter(
     (driver) => driver.status === "active"
   );
+  const activeTruckCount = truckRows.filter((truck) => truck.status === "active").length;
+  const maintenanceTruckCount = truckRows.filter((truck) => truck.status === "maintenance").length;
+  const assignedTruckCount = truckRows.filter((truck) => truck.current_driver_id).length;
+  const showCreateForm = params.new === "1";
 
   return (
     <>
       <PageHeader
+        action={
+          canCreate ? (
+            <Link className="button button-primary" href={showCreateForm ? "/trucks" : "/trucks?new=1"}>
+              <Plus size={16} />
+              {showCreateForm ? "Close" : "Add truck"}
+            </Link>
+          ) : null
+        }
         description="Track units, status, current driver assignment, and the basic vehicle details needed for daily operations."
         title="Trucks"
       />
@@ -74,7 +88,30 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
       <Notice message={params.error} type="error" />
       <Notice message={params.message} />
 
-      {canCreate ? (
+      <div className="detail-command-grid">
+        <section className="detail-signal-card">
+          <span>Total trucks</span>
+          <strong>{truckRows.length}</strong>
+          <em>{activeTruckCount} active</em>
+        </section>
+        <section className="detail-signal-card">
+          <span>Maintenance</span>
+          <strong>{maintenanceTruckCount}</strong>
+          <em>Units not fully active</em>
+        </section>
+        <section className="detail-signal-card">
+          <span>Assigned</span>
+          <strong>{assignedTruckCount}</strong>
+          <em>{truckRows.length - assignedTruckCount} unassigned</em>
+        </section>
+        <section className="detail-signal-card">
+          <span>Coverage</span>
+          <strong>{truckRows.length ? Math.round((assignedTruckCount / truckRows.length) * 100) : 0}%</strong>
+          <em>Driver assignment</em>
+        </section>
+      </div>
+
+      {canCreate && showCreateForm ? (
         <Panel title="Add truck">
           <form action={createTruck} className="form" style={{ marginTop: 0 }}>
             <input name="company_id" type="hidden" value={companyId} />

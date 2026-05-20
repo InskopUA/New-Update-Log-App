@@ -71,8 +71,27 @@ const repairIssueLabels: Record<string, string> = {
   tires: "Tires"
 };
 
+const diagramZoneLabels: Record<string, string> = {
+  body: "Trailer / body",
+  brakes: "Axles / brakes",
+  engine: "Engine bay",
+  inspection: "Inspection",
+  lights: "Lighting",
+  oil_service: "Engine service",
+  other: "General",
+  tires: "Tires"
+};
+
 function getStringValue(value: string | number | null) {
   return value === null ? "" : String(value);
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    currency: "USD",
+    maximumFractionDigits: 0,
+    style: "currency"
+  }).format(value);
 }
 
 export default async function TruckDetailPage({
@@ -123,6 +142,25 @@ export default async function TruckDetailPage({
   const topIssue = truckScore?.topIssue?.[0] ?? analytics.byIssue[0]?.[0] ?? "No pressure yet";
   const repairRows = (repairs as RepairLog[] | null) ?? [];
   const openRepairs = repairRows.filter((repair) => !["completed", "cancelled"].includes(repair.status));
+  const repairSpend = repairRows.reduce(
+    (total, repair) => total + Number(repair.actual_cost ?? repair.estimated_cost ?? 0),
+    0
+  );
+  const repairDowntime = repairRows.reduce((total, repair) => total + Number(repair.downtime_hours ?? 0), 0);
+  const repairIssueCounts = repairRows.reduce<Record<string, number>>((counts, repair) => {
+    counts[repair.issue_type] = (counts[repair.issue_type] ?? 0) + 1;
+    return counts;
+  }, {});
+  const hotZones = new Set(
+    Object.entries(repairIssueCounts)
+      .filter(([, count]) => count > 0)
+      .map(([issueType]) => issueType)
+  );
+  const hasEnginePressure = hotZones.has("engine") || hotZones.has("oil_service");
+  const hasTirePressure = hotZones.has("tires");
+  const hasBrakePressure = hotZones.has("brakes");
+  const hasBodyPressure = hotZones.has("body") || hotZones.has("other") || hotZones.has("inspection");
+  const hasLightPressure = hotZones.has("lights");
 
   return (
     <>
@@ -160,9 +198,49 @@ export default async function TruckDetailPage({
           <strong>{analytics.totalDowntime.toFixed(1)}h</strong>
           <em>All reports</em>
         </section>
+        <section className="detail-signal-card">
+          <span>Repair spend</span>
+          <strong>{formatCurrency(repairSpend)}</strong>
+          <em>{repairRows.length} repair logs</em>
+        </section>
+        <section className="detail-signal-card">
+          <span>Repair downtime</span>
+          <strong>{repairDowntime.toFixed(1)}h</strong>
+          <em>{openRepairs.length} open repairs</em>
+        </section>
       </div>
 
       <div className="grid grid-2 detail-overview-grid">
+        <Panel title="Truck health map">
+          <div className="truck-health-map">
+            <svg aria-label="Truck health map" viewBox="0 0 720 260" role="img">
+              <rect className={`truck-map-zone ${hasBodyPressure ? "zone-hot" : ""}`} x="252" y="74" width="342" height="92" rx="8" />
+              <rect className={`truck-map-zone ${hasEnginePressure ? "zone-hot" : ""}`} x="104" y="98" width="134" height="68" rx="10" />
+              <path className="truck-map-shell" d="M105 98h132l25 68h350v42H98a22 22 0 0 1-22-22v-42a46 46 0 0 1 29-46Z" />
+              <path className="truck-map-window" d="M126 112h54l13 36h-67Z" />
+              <rect className={`truck-map-zone ${hasLightPressure ? "zone-hot" : ""}`} x="86" y="162" width="28" height="16" rx="5" />
+              <circle className={`truck-map-wheel ${hasTirePressure || hasBrakePressure ? "zone-hot" : ""}`} cx="176" cy="208" r="28" />
+              <circle className={`truck-map-wheel ${hasTirePressure || hasBrakePressure ? "zone-hot" : ""}`} cx="448" cy="208" r="28" />
+              <circle className={`truck-map-wheel ${hasTirePressure || hasBrakePressure ? "zone-hot" : ""}`} cx="548" cy="208" r="28" />
+              <circle className="truck-map-hub" cx="176" cy="208" r="10" />
+              <circle className="truck-map-hub" cx="448" cy="208" r="10" />
+              <circle className="truck-map-hub" cx="548" cy="208" r="10" />
+            </svg>
+            <div className="truck-map-legend">
+              {Object.entries(repairIssueCounts).length ? (
+                Object.entries(repairIssueCounts).map(([issueType, count]) => (
+                  <span key={issueType}>
+                    <i />
+                    {diagramZoneLabels[issueType] ?? issueType}: {count}
+                  </span>
+                ))
+              ) : (
+                <span><i className="calm" />No repair pressure mapped yet</span>
+              )}
+            </div>
+          </div>
+        </Panel>
+
         <Panel title="Top truck issues">
           {analytics.byIssue.length ? (
             analytics.byIssue.slice(0, 5).map(([label, value]) => (
